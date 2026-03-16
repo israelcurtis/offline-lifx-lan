@@ -1,0 +1,81 @@
+[{
+		"id": "daylight-focus",
+		"name": "Daylight Focus",
+		"description": "Bright cool white",
+		"power": "on",
+		"hue": 210,
+		"saturation": 0.00,
+		"brightness": 1,
+		"kelvin": 5600
+	},
+	{
+		"id": "gentle-evening",
+		"name": "Gentle Evening",
+		"description": "Soft warm white",
+		"power": "on",
+		"hue": 35,
+		"saturation": 0.22,
+		"brightness": 0.6,
+		"kelvin": 3000
+	},
+	{
+		"id": "after-dark",
+		"name": "After Dark",
+		"description": "Dim amber light",
+		"power": "on",
+		"hue": 28,
+		"saturation": 0.42,
+		"brightness": 0.25,
+		"kelvin": 2600
+	},
+	{
+		"id": "night-light",
+		"name": "Night Light",
+		"description": "Very low warm light",
+		"power": "on",
+		"hue": 22,
+		"saturation": 0.55,
+		"brightness": 0.1,
+		"kelvin": 1900
+	},
+	{
+		"id": "red",
+		"name": "Red",
+		"description": "Saturated red",
+		"power": "on",
+		"hue": 0,
+		"saturation": 1,
+		"brightness": 0.65,
+		"kelvin": 3500
+	},
+	{
+		"id": "blue",
+		"name": "Blue",
+		"description": "Saturated blue",
+		"power": "on",
+		"hue": 240,
+		"saturation": 1,
+		"brightness": 0.65,
+		"kelvin": 3500
+	},
+	{
+		"id": "green",
+		"name": "Green",
+		"description": "Saturated green",
+		"power": "on",
+		"hue": 120,
+		"saturation": 1,
+		"brightness": 0.65,
+		"kelvin": 3500
+	},
+	{
+		"id": "all-off",
+		"name": "All Off",
+		"description": "Turn every light completely off.",
+		"power": "off",
+		"hue": 0,
+		"saturation": 0,
+		"brightness": 0,
+		"kelvin": 3500
+	}
+]

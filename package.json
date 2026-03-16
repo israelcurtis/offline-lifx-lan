@@ -1,0 +1,26 @@
+{
+  "name": "offline-lifx-lan",
+  "version": "1.0.0",
+  "description": "Offline local LAN controller for LIFX bulbs with a simple browser UI.",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/launcher.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test"
+  },
+  "keywords": [
+    "lifx",
+    "lan",
+    "smart-home",
+    "offline"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "express": "^5.1.0",
+    "iconoir": "^7.11.0",
+    "lifx-lan-client": "^2.0.0"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "enabledIds": [
+    "d073d5837b0b",
+    "d073d582392d",
+    "d073d58375db",
+    "d073d58336a0",
+    "d073d581780a",
+    "d073d584b657",
+    "d073d584a931",
+    "d073d5817de8",
+    "d073d55a524b",
+    "d073d5d343a9"
+  ],
+  "disabledIds": [
+    "d073d57321e0",
+    "d073d572ddfd",
+    "d073d56c18e6",
+    "d073d55b6398",
+    "d073d55b94e9",
+    "d073d56baf91",
+    "d073d56abba3"
+  ],
+  "transitionDurationMs": 3700
+}

@@ -6,7 +6,7 @@
     "power": "on",
     "hue": 210,
     "saturation": 0,
-    "brightness": 1,
+    "brightness": 0.9,
     "kelvin": 7300
   },
   {
@@ -17,7 +17,7 @@
     "hue": 35,
     "saturation": 0,
     "brightness": 0.6,
-    "kelvin": 3000
+    "kelvin": 3200
   },
   {
     "id": "after-dark",
@@ -26,7 +26,7 @@
     "power": "on",
     "hue": 28,
     "saturation": 0,
-    "brightness": 0.25,
+    "brightness": 0.3,
     "kelvin": 2300
   },
   {
@@ -42,7 +42,7 @@
   {
     "id": "red",
     "name": "Red",
-    "description": "Fully red",
+    "description": "Like a brilliant Apple",
     "power": "on",
     "hue": 359,
     "saturation": 1,
@@ -52,7 +52,7 @@
   {
     "id": "blue",
     "name": "Blue",
-    "description": "Saturated blue",
+    "description": "Deep ocean vibes",
     "power": "on",
     "hue": 240,
     "saturation": 1,
@@ -62,7 +62,7 @@
   {
     "id": "green",
     "name": "Green",
-    "description": "it’s tasty!",
+    "description": "The 80’s are calling",
     "power": "on",
     "hue": 121,
     "saturation": 1,

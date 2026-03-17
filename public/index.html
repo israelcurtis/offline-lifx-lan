@@ -34,7 +34,6 @@
 				</div>
 				<div class="status-actions">
 					<button id="restart-button" class="ghost-button">Restart Server</button>
-					<button id="discover-button" class="ghost-button">Rescan LAN</button>
 				</div>
 			</div>
 			<div class="metrics">
@@ -53,19 +52,18 @@
 					<input id="transition-duration-slider" class="transition-slider" type="range" min="0" max="5000" step="100" value="1000" />
 				</div>
 				<div class="metric">
-					<span class="metric-label">Enabled</span>
+					<span class="metric-label">Enabled / Available</span>
 					<strong id="targeted-count">0</strong>
-				</div>
-				<div class="metric">
-					<span class="metric-label">Online</span>
-					<strong id="online-count">0</strong>
 				</div>
 			</div>
 			<p id="warning-text" class="warning-text" hidden></p>
 		</section>
-		<section class="section-header">
+		<section class="section-header devices-header">
 			<div>
 				<h2>Devices</h2>
+			</div>
+			<div class="section-actions">
+				<button id="discover-button" class="ghost-button">Rescan LAN</button>
 			</div>
 		</section>
 		<section>

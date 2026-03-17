@@ -1,6 +1,5 @@
 const statusText = document.querySelector("#status-text");
 const warningText = document.querySelector("#warning-text");
-const onlineCount = document.querySelector("#online-count");
 const targetedCount = document.querySelector("#targeted-count");
 const sceneGrid = document.querySelector("#scene-grid");
 const sceneEditorSection = document.querySelector("#scene-editor-section");
@@ -23,6 +22,7 @@ let sceneFeedbackLabel = null;
 let sceneFeedbackTimer = null;
 let isAdjustingTransitionDuration = false;
 let isAdjustingLiveBrightness = false;
+let isSavingTargetState = false;
 let editingSceneId = null;
 let editingSceneDraft = null;
 let hasLiveScenePreview = false;
@@ -55,6 +55,13 @@ function setBusyState(nextBusyState) {
 	restartButton.dataset.busy = String(nextBusyState && activeActivity === "restart");
 	discoverButton.textContent = activeActivity === "discover" && nextBusyState ? "Rescanning..." : "Rescan LAN";
 	restartButton.textContent = activeActivity === "restart" && nextBusyState ? "Restarting..." : "Restart Server";
+}
+
+function setTargetSaveState(nextSavingTargetState) {
+	isSavingTargetState = nextSavingTargetState;
+	if (currentStatus) {
+		renderLights(currentStatus.lights ?? []);
+	}
 }
 
 function formatDurationLabel(durationMs) {
@@ -178,6 +185,46 @@ function setSceneFeedback(sceneId, label) {
 		sceneFeedbackLabel = null;
 		renderScenes(currentStatus?.scenes ?? []);
 	}, SCENE_FEEDBACK_DURATION_MS);
+}
+
+function applyLocalTargetState(enabledTargetIds, disabledTargetIds) {
+	if (!currentStatus) {
+		return;
+	}
+
+	const enabledIdSet = new Set(enabledTargetIds);
+	const disabledIdSet = new Set(disabledTargetIds);
+	const nextLights = (currentStatus.lights ?? []).map((light) => {
+		const enabled = enabledIdSet.has(light.id) || !disabledIdSet.has(light.id);
+		return {
+			...light,
+			enabled,
+			targeted: enabled
+		};
+	});
+
+	const addressGroups = (currentStatus.addressGroups ?? []).map((group) => {
+		const groupLights = nextLights.filter((light) => light.addressGroup === group.key);
+		const enabledCount = groupLights.filter((light) => light.enabled).length;
+		return {
+			...group,
+			enabledCount,
+			targetedCount: enabledCount,
+			fullyEnabled: enabledCount === group.count && group.count > 0
+		};
+	});
+
+	currentStatus = {
+		...currentStatus,
+		enabledTargetIds: [...enabledTargetIds],
+		disabledTargetIds: [...disabledTargetIds],
+		targetedCount: enabledIdSet.size,
+		addressGroups,
+		lights: nextLights
+	};
+
+	renderLights(currentStatus.lights);
+	targetedCount.textContent = `${currentStatus.targetedCount} / ${currentStatus.discoveredCount}`;
 }
 
 function createLiveCommandQueue({
@@ -524,71 +571,53 @@ function getStateSwatchColor(currentState) {
 
 function getStateLabel(currentState) {
 	if (!currentState) {
-		return "State pending";
+		return "awaiting response";
 	}
 
 	if (currentState.power !== "on") {
 		return "Off";
 	}
 
-	return `${Math.round(currentState.brightness)}% · ${Math.round(currentState.hue)}° · ${Math.round(currentState.kelvin)}K`;
+	if (currentState.saturation <= 8) {
+		return `${Math.round(currentState.brightness)}% · ${Math.round(currentState.kelvin)}K`;
+	}
+
+	return `${Math.round(currentState.brightness)}% · ${Math.round(currentState.hue)}° hue`;
 }
 
 function isLightEnabled(light) {
 	return light.enabled !== false;
 }
 
-function renderLightCard(light) {
+function createLightCard() {
 	const card = document.createElement("article");
 	card.className = "light-card";
-	const enabled = isLightEnabled(light);
-	card.dataset.enabled = String(enabled);
 	const header = document.createElement("div");
 	header.className = "light-card-header";
 	const swatch = document.createElement("span");
 	swatch.className = "light-swatch";
-	if (!light.currentState || light.currentState.power !== "on" || light.currentState.brightness <= 0) {
-		swatch.dataset.power = "off";
-		swatch.setAttribute("aria-label", "Bulb is off");
-	} else {
-		swatch.dataset.power = "on";
-		swatch.style.background = getStateSwatchColor(light.currentState);
-		swatch.setAttribute("aria-label", "Bulb is on");
-	}
 	const title = document.createElement("h3");
-	title.textContent = light.label;
 	header.append(swatch, title);
 	const address = document.createElement("p");
 	address.className = "light-meta light-identifier-meta";
-	address.textContent = light.address;
 	const identifier = document.createElement("p");
 	identifier.className = "light-meta light-identifier-meta";
-	identifier.textContent = `ID: ${light.id}`;
 	const stateLabel = document.createElement("p");
 	stateLabel.className = "light-meta light-state-meta";
-	stateLabel.textContent = getStateLabel(light.currentState);
 
 	const pillRow = document.createElement("div");
 	pillRow.className = "pill-row";
 
 	const onlinePill = document.createElement("span");
-	onlinePill.className = `pill ${light.status === "on" ? "online" : "offline"}`;
-	onlinePill.textContent = light.status === "on" ? "Online" : "Offline";
-
-	const targetingPillTag = currentStatus?.manualTargetingEnabled ? "button" : "span";
-	const targetingPill = document.createElement(targetingPillTag);
-	targetingPill.className = `pill pill-toggle ${enabled ? "enabled" : "disabled"}`;
-	targetingPill.textContent = enabled ? "Enabled" : "Disabled";
-
-	if (currentStatus?.manualTargetingEnabled) {
-		targetingPill.type = "button";
-		targetingPill.disabled = isSubmitting;
-		targetingPill.setAttribute(
-			"aria-label",
-			enabled ? `Disable ${light.label}` : `Enable ${light.label}`
-		);
-		targetingPill.addEventListener("click", () => toggleTarget(light.id));
-	}
+	onlinePill.className = "pill";
+	const onlineIcon = document.createElement("img");
+	onlineIcon.className = "pill-icon";
+	onlineIcon.alt = "";
+	onlineIcon.setAttribute("aria-hidden", "true");
+	onlinePill.append(onlineIcon);
+	const targetingPill = document.createElement("button");
+	targetingPill.type = "button";
+	targetingPill.className = "pill pill-toggle";
 
 	pillRow.append(targetingPill);
 	pillRow.append(onlinePill);
@@ -596,6 +625,123 @@ function renderLightCard(light) {
 	card.append(header, stateLabel, address, identifier, pillRow);
 
 	return card;
+}
+
+function updateLightCard(card, light) {
+	const enabled = isLightEnabled(light);
+	const swatch = card.querySelector(".light-swatch");
+	const title = card.querySelector("h3");
+	const address = card.querySelectorAll(".light-identifier-meta")[0];
+	const identifier = card.querySelectorAll(".light-identifier-meta")[1];
+	const stateLabel = card.querySelector(".light-state-meta");
+	const onlinePill = card.querySelector(".pill:not(.pill-toggle)");
+	const onlineIcon = card.querySelector(".pill-icon");
+	const targetingPill = card.querySelector(".pill-toggle");
+
+	card.dataset.enabled = String(enabled);
+	card.dataset.lightId = light.id;
+	if (!light.currentState || light.currentState.power !== "on" || light.currentState.brightness <= 0) {
+		swatch.dataset.power = "off";
+		swatch.style.background = "";
+		swatch.setAttribute("aria-label", "Bulb is off");
+	} else {
+		swatch.dataset.power = "on";
+		swatch.style.background = getStateSwatchColor(light.currentState);
+		swatch.setAttribute("aria-label", "Bulb is on");
+	}
+	title.textContent = light.label;
+	address.textContent = light.address;
+	identifier.textContent = `ID: ${light.id}`;
+	stateLabel.textContent = getStateLabel(light.currentState);
+	stateLabel.dataset.pending = String(!light.currentState);
+
+	onlinePill.className = `pill ${light.status === "on" ? "online" : "offline"}`;
+	onlinePill.setAttribute("aria-label", light.status === "on" ? "Online" : "Offline");
+	onlinePill.title = light.status === "on" ? "Online" : "Offline";
+	onlineIcon.src = light.status === "on"
+		? "/assets/iconoir/regular/wifi.svg"
+		: "/assets/iconoir/solid/warning-triangle.svg";
+
+	targetingPill.className = `pill pill-toggle ${enabled ? "enabled" : "disabled"}`;
+	targetingPill.textContent = enabled ? "ENABLED" : "DISABLED";
+	targetingPill.disabled = isSavingTargetState || !currentStatus?.manualTargetingEnabled;
+	targetingPill.setAttribute(
+		"aria-label",
+		enabled ? `Disable ${light.label}` : `Enable ${light.label}`
+	);
+	targetingPill.onclick = currentStatus?.manualTargetingEnabled ? () => toggleTarget(light.id) : null;
+}
+
+function createDeviceGroupSection() {
+	const wrapper = document.createElement("section");
+	wrapper.className = "device-group";
+
+	const header = document.createElement("div");
+	header.className = "device-group-header";
+
+	const headerText = document.createElement("div");
+	headerText.className = "device-group-summary";
+	const title = document.createElement("h3");
+	const stats = document.createElement("div");
+	stats.className = "device-group-stats";
+
+	const onlineStat = document.createElement("span");
+	onlineStat.className = "device-group-stat";
+
+	const enabledStat = document.createElement("span");
+	enabledStat.className = "device-group-stat";
+
+	stats.append(onlineStat, enabledStat);
+	headerText.append(title, stats);
+
+	const actions = document.createElement("div");
+	actions.className = "device-group-actions";
+
+	const enableButton = document.createElement("button");
+	enableButton.className = "device-group-toggle";
+	enableButton.textContent = "Enable All";
+
+	const disableButton = document.createElement("button");
+	disableButton.className = "device-group-toggle";
+	disableButton.textContent = "Disable All";
+
+	actions.append(enableButton, disableButton);
+	header.append(headerText, actions);
+
+	const grid = document.createElement("div");
+	grid.className = "device-group-grid";
+
+	wrapper.append(header, grid);
+	return wrapper;
+}
+
+function updateDeviceGroupSection(wrapper, group, groupLights) {
+	const title = wrapper.querySelector("h3");
+	const [onlineStat, enabledStat] = wrapper.querySelectorAll(".device-group-stat");
+	const [enableButton, disableButton] = wrapper.querySelectorAll(".device-group-toggle");
+	const grid = wrapper.querySelector(".device-group-grid");
+
+	wrapper.dataset.enabled = String(group.enabledCount > 0);
+	wrapper.dataset.addressGroup = group.key;
+	title.textContent = group.label;
+	onlineStat.textContent = `${group.onlineCount}/${group.count} online`;
+	enabledStat.textContent = `${group.enabledCount} enabled`;
+	enableButton.dataset.addressGroup = group.key;
+	disableButton.dataset.addressGroup = group.key;
+	enableButton.disabled = isSavingTargetState || !currentStatus?.manualTargetingEnabled;
+	disableButton.disabled = isSavingTargetState || !currentStatus?.manualTargetingEnabled;
+	enableButton.onclick = () => toggleAddressGroup(group.key, true);
+	disableButton.onclick = () => toggleAddressGroup(group.key, false);
+
+	const existingCardsById = new Map(
+		[...grid.querySelectorAll(".light-card")].map((card) => [card.dataset.lightId, card])
+	);
+	const nextCards = groupLights.map((light) => {
+		const card = existingCardsById.get(light.id) ?? createLightCard();
+		updateLightCard(card, light);
+		return card;
+	});
+	grid.replaceChildren(...nextCards);
 }
 
 function renderLights(lights) {
@@ -607,69 +753,19 @@ function renderLights(lights) {
 		return groups;
 	}, new Map());
 
-	const groupElements = (currentStatus?.addressGroups ?? []).map((group) => {
-		const wrapper = document.createElement("section");
-		wrapper.className = "device-group";
-		wrapper.dataset.enabled = String(group.enabledCount > 0);
-
-		const header = document.createElement("div");
-		header.className = "device-group-header";
-
-		const headerText = document.createElement("div");
-		headerText.className = "device-group-summary";
-		const title = document.createElement("h3");
-		title.textContent = group.label;
-		const stats = document.createElement("div");
-		stats.className = "device-group-stats";
-
-		const onlineStat = document.createElement("span");
-		onlineStat.className = "device-group-stat";
-		onlineStat.textContent = `${group.onlineCount}/${group.count} online`;
-
-		const enabledStat = document.createElement("span");
-		enabledStat.className = "device-group-stat";
-		enabledStat.textContent = `${group.enabledCount} enabled`;
-
-		stats.append(onlineStat, enabledStat);
-		headerText.append(title, stats);
-
-		const actions = document.createElement("div");
-		actions.className = "device-group-actions";
-
-		const enableButton = document.createElement("button");
-		enableButton.className = "device-group-toggle";
-		enableButton.dataset.addressGroup = group.key;
-		enableButton.textContent = "Enable All";
-		enableButton.disabled = isSubmitting || !currentStatus?.manualTargetingEnabled;
-		enableButton.addEventListener("click", () => toggleAddressGroup(group.key, true));
-
-		const disableButton = document.createElement("button");
-		disableButton.className = "device-group-toggle";
-		disableButton.dataset.addressGroup = group.key;
-		disableButton.textContent = "Disable All";
-		disableButton.disabled = isSubmitting || !currentStatus?.manualTargetingEnabled;
-		disableButton.addEventListener("click", () => toggleAddressGroup(group.key, false));
-
-		actions.append(enableButton, disableButton);
-
-		header.append(headerText);
-		header.append(actions);
-		wrapper.append(header);
-
-		const grid = document.createElement("div");
-		grid.className = "device-group-grid";
-		grid.append(
-			...(groupedLights.get(group.key) ?? [])
+	const existingGroupsByKey = new Map(
+		[...lightGrid.querySelectorAll(".device-group")].map((wrapper) => [wrapper.dataset.addressGroup, wrapper])
+	);
+	const nextGroups = (currentStatus?.addressGroups ?? []).map((group) => {
+		const wrapper = existingGroupsByKey.get(group.key) ?? createDeviceGroupSection();
+		const groupLights = (groupedLights.get(group.key) ?? [])
 			.slice()
-			.sort((left, right) => left.label.localeCompare(right.label))
-			.map((light) => renderLightCard(light))
-		);
-
-		wrapper.append(grid);
+			.sort((left, right) => left.label.localeCompare(right.label));
+		updateDeviceGroupSection(wrapper, group, groupLights);
 		return wrapper;
 	});
 
-	lightGrid.replaceChildren(...groupElements);
+	lightGrid.replaceChildren(...nextGroups);
 }
 
 function sceneDescription(scene) {
@@ -754,6 +850,14 @@ function setSceneEditor(scene) {
 	scenePreviewQueue.clearPending();
 	renderScenes(currentStatus?.scenes ?? []);
 	renderSceneEditor(currentStatus?.scenes ?? []);
+	if (window.matchMedia?.("(max-width: 640px)")?.matches) {
+		requestAnimationFrame(() => {
+			sceneEditorSection.scrollIntoView({
+				behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ? "auto" : "smooth",
+				block: "start"
+			});
+		});
+	}
 }
 
 function clearSceneEditor() {
@@ -812,13 +916,11 @@ function renderSceneEditor(scenes) {
 	editor.className = "scene-editor";
 	const editorHeader = document.createElement("div");
 	editorHeader.className = "scene-editor-header";
+	const editorHeaderCopy = document.createElement("div");
 	const editorTitle = document.createElement("h3");
 	editorTitle.className = "scene-editor-title";
 	editorTitle.textContent = `Editing Scene: ${scene.name}`;
-	const editorSubtitle = document.createElement("p");
-	editorSubtitle.className = "scene-editor-subtitle";
-	editorSubtitle.textContent = "Update the scene details and color settings, then save to rewrite scenes.json.";
-	editorHeader.append(editorTitle, editorSubtitle);
+	editorHeaderCopy.append(editorTitle);
 
 	const fieldGrid = document.createElement("div");
 	fieldGrid.className = "scene-editor-grid";
@@ -954,7 +1056,8 @@ function renderSceneEditor(scenes) {
 	saveButton.textContent = "Save";
 	actions.append(cancelButton, saveButton);
 
-	editor.append(editorHeader, fieldGrid, actions);
+	editorHeader.append(editorHeaderCopy, actions);
+	editor.append(editorHeader, fieldGrid);
 	sceneEditorContainer.append(editor);
 	let isDraggingHueWheel = false;
 	function queueEditorScenePreview() {
@@ -1193,6 +1296,26 @@ function createSceneCard(scene) {
 	return card;
 }
 
+function getSceneCardState(scene) {
+	const isActive = currentStatus?.lastAction?.sceneId === scene.id;
+	const isShowingFeedback = sceneFeedbackId === scene.id;
+	const isEditing = editingSceneId === scene.id;
+	const actionableTargetCount = currentStatus?.lights?.filter((light) => light.targeted && light.status === "on").length ?? 0;
+	const isUnavailable = !editingSceneId && actionableTargetCount === 0;
+	const isDisabled = editingSceneId ? !isEditing : isUnavailable;
+	const focusState = editingSceneId
+		? (isEditing ? "editing" : "muted")
+		: (isUnavailable ? "disabled" : "idle");
+
+	return {
+		isActive,
+		isShowingFeedback,
+		isEditing,
+		focusState,
+		isDisabled
+	};
+}
+
 function updateSceneCard(card, scene) {
 	const title = card.querySelector("h2");
 	const description = card.querySelector("p");
@@ -1201,17 +1324,22 @@ function updateSceneCard(card, scene) {
 	const editButton = card.querySelector(".scene-edit-button");
 	const buttonIcon = card.querySelector(".scene-trigger-icon");
 	const buttonLabel = card.querySelector(".scene-apply-label");
-	const isActive = currentStatus?.lastAction?.sceneId === scene.id;
-	const isShowingFeedback = sceneFeedbackId === scene.id;
-	const isEditing = editingSceneId === scene.id;
+	const {
+		isActive,
+		isShowingFeedback,
+		isEditing,
+		focusState,
+		isDisabled
+	} = getSceneCardState(scene);
 
 	card.dataset.sceneId = scene.id;
 	card.dataset.active = String(isActive);
-	card.dataset.editing = String(isEditing);
+	card.dataset.focus = focusState;
+	card.dataset.disabled = String(isDisabled);
 	title.textContent = scene.name;
 	description.textContent = sceneDescription(scene);
 	settings.textContent = sceneSettingsLabel(scene);
-	editButton.disabled = isSubmitting;
+	editButton.disabled = isSubmitting || isDisabled;
 	editButton.setAttribute("aria-label", `Edit ${scene.name}`);
 	editButton.onclick = () => {
 		if (editingSceneId === scene.id) {
@@ -1244,7 +1372,7 @@ function updateSceneCard(card, scene) {
 	button.dataset.applied = String(isShowingFeedback);
 	button.setAttribute("aria-label", isActive ? `${scene.name} applied` : `Trigger ${scene.name}`);
 	button.style.setProperty("--scene-transition-ms", `${currentStatus?.transitionDurationMs ?? 1000}ms`);
-	button.disabled = isSubmitting;
+	button.disabled = isSubmitting || isDisabled;
 }
 
 function renderScenes(scenes) {
@@ -1269,8 +1397,7 @@ function renderStatus(payload) {
 	}
 	statusText.textContent = statusParts.join(" ");
 
-	onlineCount.textContent = String(payload.onlineCount);
-	targetedCount.textContent = String(payload.targetedCount);
+	targetedCount.textContent = `${payload.targetedCount} / ${payload.discoveredCount}`;
 	warningText.hidden = !payload.warning;
 	warningText.textContent = payload.warning ?? "";
 	if (!isAdjustingTransitionDuration || isSubmitting) {
@@ -1459,7 +1586,7 @@ const scenePreviewQueue = createLiveCommandQueue({
 });
 
 async function toggleTarget(lightId) {
-	if (!currentStatus?.manualTargetingEnabled) {
+	if (!currentStatus?.manualTargetingEnabled || isSavingTargetState) {
 		return;
 	}
 
@@ -1480,27 +1607,53 @@ async function toggleTarget(lightId) {
 	}
 
 	try {
-		setBusyState(true);
+		setTargetSaveState(true);
+		applyLocalTargetState([...enabledTargetIds], [...disabledTargetIds]);
 		await saveTargets([...enabledTargetIds], [...disabledTargetIds]);
 	} catch (error) {
 		statusText.textContent = error.message;
+		if (currentStatus) {
+			loadStatus().catch((loadError) => {
+				statusText.textContent = loadError.message;
+			});
+		}
 	} finally {
-		setBusyState(false);
+		setTargetSaveState(false);
 	}
 }
 
 async function toggleAddressGroup(addressGroup, enabled) {
-	if (!currentStatus?.manualTargetingEnabled) {
+	if (!currentStatus?.manualTargetingEnabled || isSavingTargetState) {
 		return;
 	}
 
+	const enabledTargetIds = new Set(currentStatus.enabledTargetIds ?? []);
+	const disabledTargetIds = new Set(currentStatus.disabledTargetIds ?? []);
+	const groupLights = (currentStatus.lights ?? []).filter((light) => light.addressGroup === addressGroup);
+
+	for (const light of groupLights) {
+		if (enabled) {
+			enabledTargetIds.add(light.id);
+			disabledTargetIds.delete(light.id);
+		} else {
+			enabledTargetIds.delete(light.id);
+			disabledTargetIds.add(light.id);
+		}
+	}
+
 	try {
-		setBusyState(true);
+		setTargetSaveState(true);
+		applyLocalTargetState([...enabledTargetIds], [...disabledTargetIds]);
 		await saveAddressGroupState(addressGroup, enabled);
 	} catch (error) {
 		statusText.textContent = error.message;
+		if (currentStatus) {
+			loadStatus().catch((loadError) => {
+				statusText.textContent = loadError.message;
+			});
+		}
 	} finally {
-		setBusyState(false);
+		setTargetSaveState(false);
 	}
 }
 

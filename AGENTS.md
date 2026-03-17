@@ -46,7 +46,8 @@ Important files:
 ### Config
 
 - scene definitions: `config/scenes.json`
-- persistent controller state: `config/config.json`
+- tracked controller config: `config/options.json`
+- gitignored device targeting state: `config/known-devices.json`
 
 ### Packaging helpers
 
@@ -130,11 +131,14 @@ The controller creates one `Client` per active private IPv4 interface.
 
 Targeting is per-device only.
 
-Persistent keys in `config/config.json`:
+Persistent keys in `config/options.json`:
+
+- `transitionDurationMs`
+
+Persistent keys in `config/known-devices.json`:
 
 - `enabledIds`
 - `disabledIds`
-- `transitionDurationMs`
 
 Important:
 
@@ -169,7 +173,7 @@ Current timing model:
 
 - one global transition duration
 - controlled by the UI
-- stored in `config/config.json` as `transitionDurationMs`
+- stored in `config/options.json` as `transitionDurationMs`
 
 ## Scene Transition Behavior
 

@@ -1,6 +1,7 @@
 import EventEmitter from "node:events";
 import lifxLanClient from "lifx-lan-client";
 import { saveControllerConfig } from "./controller-config-store.js";
+import { saveKnownDevicesState } from "./known-devices-store.js";
 import { listActiveLanInterfaces } from "./network-interfaces.js";
 import { pickTargetLights } from "./scene-utils.js";
 
@@ -332,18 +333,16 @@ export class LifxController extends EventEmitter {
     );
   }
 
-  persistControllerConfig(overrides = {}) {
-    const savedConfig = saveControllerConfig({
+  persistKnownDevicesState(overrides = {}) {
+    const savedState = saveKnownDevicesState({
       enabledIds: this.config.enabledTargetIds,
       disabledIds: this.config.disabledTargetIds,
-      transitionDurationMs: this.config.transitionDurationMs,
       ...overrides
     });
 
-    this.config.enabledTargetIds = savedConfig.enabledIds;
-    this.config.disabledTargetIds = savedConfig.disabledIds;
-    this.config.transitionDurationMs = savedConfig.transitionDurationMs;
-    return savedConfig;
+    this.config.enabledTargetIds = savedState.enabledIds;
+    this.config.disabledTargetIds = savedState.disabledIds;
+    return savedState;
   }
 
   setDeviceStates({ enabledTargetIds = [], disabledTargetIds = [] }) {
@@ -352,7 +351,7 @@ export class LifxController extends EventEmitter {
     }
 
     const enabledIdSet = new Set(enabledTargetIds);
-    const savedConfig = this.persistControllerConfig({
+    const savedState = this.persistKnownDevicesState({
       enabledIds: enabledTargetIds,
       disabledIds: disabledTargetIds.filter((id) => !enabledIdSet.has(id))
     });
@@ -362,8 +361,8 @@ export class LifxController extends EventEmitter {
       disabledTargetIds: this.config.disabledTargetIds
     });
     return {
-      enabledTargetIds: savedConfig.enabledIds,
-      disabledTargetIds: savedConfig.disabledIds
+      enabledTargetIds: savedState.enabledIds,
+      disabledTargetIds: savedState.disabledIds
     };
   }
 
@@ -386,7 +385,7 @@ export class LifxController extends EventEmitter {
       }
     }
 
-    const savedConfig = this.persistControllerConfig({
+    const savedState = this.persistKnownDevicesState({
       enabledIds: [...enabledIdSet],
       disabledIds: [...disabledIdSet]
     });
@@ -396,13 +395,14 @@ export class LifxController extends EventEmitter {
       enabled
     });
     return {
-      enabledTargetIds: savedConfig.enabledIds,
-      disabledTargetIds: savedConfig.disabledIds
+      enabledTargetIds: savedState.enabledIds,
+      disabledTargetIds: savedState.disabledIds
     };
   }
 
   setTransitionDurationMs(transitionDurationMs) {
-    const savedConfig = this.persistControllerConfig({ transitionDurationMs });
+    const savedConfig = saveControllerConfig({ transitionDurationMs });
+    this.config.transitionDurationMs = savedConfig.transitionDurationMs;
     console.log(`Global transition duration set to ${savedConfig.transitionDurationMs}ms.`);
     this.emit("update", {
       type: "transition-duration-updated",
@@ -461,7 +461,7 @@ export class LifxController extends EventEmitter {
     }
 
     if (changed) {
-      this.persistControllerConfig({
+      this.persistKnownDevicesState({
         enabledIds: [...enabledIdSet],
         disabledIds: [...disabledIdSet]
       });

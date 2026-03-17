@@ -102,7 +102,7 @@ Affected files:
 - `src/config.js`
 - `src/controller-config-store.js`
 
-Environment override paths like `SCENES_PATH` and `CONTROLLER_CONFIG_PATH` are now resolved relative to the app root if they are not absolute.
+Environment override paths like `SCENES_PATH`, `CONTROLLER_CONFIG_PATH`, and `KNOWN_DEVICES_PATH` are now resolved relative to the app root if they are not absolute.
 
 ## Configuration Model
 
@@ -110,13 +110,20 @@ Environment override paths like `SCENES_PATH` and `CONTROLLER_CONFIG_PATH` are n
 
 Persistent controller state lives in:
 
-- `config/config.json`
+- `config/options.json`
+
+Current keys:
+
+- `transitionDurationMs`
+
+Per-machine known-device targeting state lives in:
+
+- `config/known-devices.json`
 
 Current keys:
 
 - `enabledIds`
 - `disabledIds`
-- `transitionDurationMs`
 
 Important simplification:
 
@@ -139,7 +146,7 @@ Per-scene durations were removed.
 Current model:
 
 - one global transition duration
-- stored in `config/config.json` as `transitionDurationMs`
+- stored in `config/options.json` as `transitionDurationMs`
 - controlled from the UI slider
 
 ### Scene transitions

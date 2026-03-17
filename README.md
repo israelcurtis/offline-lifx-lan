@@ -11,7 +11,8 @@ Offline local controller for LIFX bulbs using the LIFX LAN protocol and a small 
 - Shows live device state with per-bulb swatches, brightness, hue, and kelvin.
 - Lets you enable or disable individual bulbs from being affected by Scene changes.
 - Lets you enable or disable all devices in a subnet as a bulk action.
-- Persists controller state in `config/config.json`.
+- Persists global transition settings in `config/options.json`.
+- Persists per-machine device targeting state in `config/known-devices.json`.
 
 ## Run
 
@@ -78,21 +79,27 @@ Supported environment variables:
 | `LIFX_TARGET_IDS` | empty | Optional fixed bulb-id filter |
 | `LIFX_TARGET_ADDRESSES` | empty | Optional fixed IP-address filter |
 | `SCENES_PATH` | `config/scenes.json` | Alternate scene definition file |
-| `CONTROLLER_CONFIG_PATH` | `config/config.json` | Alternate controller state file |
+| `CONTROLLER_CONFIG_PATH` | `config/options.json` | Alternate controller config file |
+| `KNOWN_DEVICES_PATH` | `config/known-devices.json` | Alternate local device-state file |
 
 If any of the fixed `LIFX_TARGET_*` filters are set, manual enable/disable controls in the UI are treated as unavailable, because targeting is then defined by environment configuration.
 
 ## Controller State
 
-Persistent controller state lives in `config/config.json`.
+Tracked controller config lives in `config/options.json`.
+
+Current keys:
+
+- `transitionDurationMs`
+
+Per-machine device targeting state lives in `config/known-devices.json`, which is intentionally gitignored.
 
 Current keys:
 
 - `enabledIds`
 - `disabledIds`
-- `transitionDurationMs`
 
-`enabledIds` and `disabledIds` are explicit per-device states. Subnet buttons in the UI are just bulk actions that update those device IDs.
+If `config/known-devices.json` does not exist yet, the app starts with empty device state and creates the file after the first discovery/status sync adds known bulbs. Subnet buttons in the UI are just bulk actions that update those device IDs.
 
 ## Scenes
 
@@ -109,7 +116,7 @@ Each scene supports:
 - `brightness` (`0-1`)
 - `kelvin` (`1500-9000`)
 
-Scene files no longer carry per-scene transition durations. Transition timing is global and comes from the UI slider / `config/config.json`.
+Scene files no longer carry per-scene transition durations. Transition timing is global and comes from the UI slider / `config/options.json`.
 
 ## Browser UI
 

@@ -1,19 +1,18 @@
 # LIFX LAN Controller
 
-Offline local controller for LIFX bulbs using the LIFX LAN protocol and a small browser UI. It runs entirely on your Mac and talks to bulbs directly over UDP through [`lifx-lan-client`](https://github.com/node-lifx/lifx-lan-client).
+Offline local controller for LIFX bulbs using the LIFX LAN protocol and a browser UI. It runs on your Mac, talks directly to bulbs over UDP through [`lifx-lan-client`](https://github.com/node-lifx/lifx-lan-client), and does not depend on the LIFX cloud API.
 
 ## Current capabilities
 
 - Discovers bulbs across multiple active private IPv4 interfaces on the host.
-- Works across separated home subnets when the Mac has reachability to them.
-- Applies synchronized preset scenes from a browser UI.
-- Lets you edit existing scenes from the browser UI and persist them back to `scenes.json`.
-- Uses one global transition duration for all scene changes, controlled by a slider in the UI.
-- Shows live device state with per-bulb swatches, brightness, hue, and kelvin.
-- Lets you enable or disable individual bulbs from being affected by Scene changes.
-- Lets you enable or disable all devices in a subnet as a bulk action.
-- Persists global transition settings in `config/options.json`.
-- Persists per-machine device targeting state in `config/known-devices.json`.
+- Works across separate local subnets when the Mac has reachability to them.
+- Applies preset scenes with one global transition duration.
+- Lets you edit existing scenes in the browser UI.
+- Supports live scene preview while editing, without saving first.
+- Supports `Color`, `White`, and `Off` scene modes in the editor.
+- Lets you adjust a global `Brightness Override` slider after a scene is applied.
+- Groups devices by subnet and supports per-device and bulk subnet targeting.
+- Persists tracked global options separately from gitignored local device state.
 
 ## Run
 
@@ -31,7 +30,7 @@ npm start
 
 3. Open [http://localhost:3000](http://localhost:3000).
 
-`npm start` runs the launcher wrapper so the in-app `Restart Server` button can restart the process cleanly.
+`npm start` runs the launcher wrapper, which is required for the in-app `Restart Server` button and the single-instance guard.
 
 ## Development
 
@@ -44,12 +43,12 @@ npm test
 
 ## Platypus Packaging
 
-If you want to wrap the controller as a macOS app with Platypus, there are two entry scripts in the repo root. Use these in the Script Path field:
+If you want to wrap the controller as a macOS app with Platypus, there are two entry scripts in the repo root:
 
 - `platypus-textwindow-entry.js`
-  - Use this for Platypus `Text Window` interface mode launches the controller stack and routes stdout to the text window. To access the UI go to `http://127.0.0.1:3000` in an external browser
+  - Use this for Platypus `Text Window` mode. It starts the controller stack and routes stdout to the text window. Open `http://127.0.0.1:3000` in an external browser.
 - `platypus-webview-entry.js`
-  - Use this for Platypus `Web View` interface mode. It starts the local controller and then opens the existing browser UI inside the Platypus window.
+  - Use this for Platypus `Web View` mode. It starts the local controller and then hands off to the browser UI inside the Platypus window.
 
 Recommended bundled files:
 
@@ -61,13 +60,11 @@ Recommended bundled files:
 
 Notes:
 
-- The app uses ES modules, so `package.json` needs to be present in the bundle because it provides `"type": "module"`.
+- The app uses ES modules, so `package.json` must be present in the bundle because it provides `"type": "module"`.
 - The Platypus Web View wrapper expects the local controller UI to be served from `http://127.0.0.1:3000`.
-- If your Platypus app uses symlinks back to this repo during development, changes to the linked files take effect without rebuilding the bundle.
+- If your Platypus app uses symlinks back to this repo during development, linked file changes can affect the running app directly.
 
 ## Configuration
-
-There is no `.env.example` anymore. If you want environment overrides, create your own `.env` file or export variables in your shell before starting the app.
 
 Supported environment variables:
 
@@ -80,14 +77,14 @@ Supported environment variables:
 | `LIFX_TARGET_IDS` | empty | Optional fixed bulb-id filter |
 | `LIFX_TARGET_ADDRESSES` | empty | Optional fixed IP-address filter |
 | `SCENES_PATH` | `config/scenes.json` | Alternate scene definition file |
-| `CONTROLLER_CONFIG_PATH` | `config/options.json` | Alternate controller config file |
+| `CONTROLLER_CONFIG_PATH` | `config/options.json` | Alternate tracked options file |
 | `KNOWN_DEVICES_PATH` | `config/known-devices.json` | Alternate local device-state file |
 
-If any of the fixed `LIFX_TARGET_*` filters are set, manual enable/disable controls in the UI are treated as unavailable, because targeting is then defined by environment configuration.
+If any of the fixed `LIFX_TARGET_*` filters are set, manual enable/disable controls in the UI are treated as unavailable because targeting is then defined by environment configuration.
 
-## Controller State
+## Persistent state
 
-Tracked controller config lives in `config/options.json`.
+Tracked controller options live in `config/options.json`.
 
 Current keys:
 
@@ -101,7 +98,7 @@ Current keys:
 - `enabledIds`
 - `disabledIds`
 
-If `config/known-devices.json` does not exist yet, the app starts with empty device state and creates the file after the first discovery/status sync adds known bulbs. Subnet buttons in the UI are just bulk actions that update those device IDs.
+If `config/known-devices.json` does not exist yet, the app starts with empty local targeting state and creates the file after discovery/status sync adds known bulbs.
 
 ## Scenes
 
@@ -112,26 +109,51 @@ Each scene supports:
 - `id`
 - `name`
 - `description`
-- `power` (`on` or `off`)
-- `hue` (`0-360`)
-- `saturation` (`0-1`)
-- `brightness` (`0-1`)
-- `kelvin` (`1500-9000`)
+- `power`
+- `hue`
+- `saturation`
+- `brightness`
+- `kelvin`
 
-Scene files no longer carry per-scene transition durations. Transition timing is global and comes from the UI slider / `config/options.json`.
-Missing scene Kelvin values are normalized from the global `defaultSceneKelvin` option in `config/options.json`.
+Notes:
+
+- Scene IDs are derived from scene names when editing through the UI.
+- Per-scene transition durations are not supported. Transition timing is global.
+- Missing scene Kelvin values are normalized from `config/options.json` `defaultSceneKelvin`.
+- `Off` scenes still carry a Kelvin value so switching back to `White` mode starts from the global default.
 
 ## Browser UI
 
 The browser interface currently includes:
 
-- preset scene cards
-- controller status with enabled count, online count, and transition slider
-- `Restart Server` and `Rescan LAN` actions
+- preset scene cards with color-preview trigger buttons
+- a standalone scene editor below the scene grid
+- live scene preview while dragging editor controls
+- `Brightness Override` and transition duration sliders in controller status
+- `Restart Server` in controller status
+- `Rescan LAN` beside the `Devices` section header
 - subnet-grouped device lists
-- per-device `Enabled` / `Disabled` toggles
-- subnet-level bulk enable/disable buttons
+- per-device `ENABLED` / `DISABLED` targeting pills
+- subnet-level `Enable All` / `Disable All` buttons
 - live device swatches and state readout
+
+Current editor behavior:
+
+- only one scene can be edited at a time
+- the editor supports `Color`, `White`, and `Off` light modes
+- non-edited scene cards are dimmed and disabled while editing
+- on mobile widths, opening a scene editor scrolls to the editor section
+
+## Polling and state behavior
+
+The app uses a mixed optimistic + reconciled status model:
+
+- background polling runs every `3000ms`
+- scene applies, live editor preview, and brightness override update the in-memory bulb state cache immediately
+- the UI therefore updates right away to the commanded target state
+- later polling reconciles the UI back to actual bulb-reported state if a bulb missed a command
+
+This is intentional. It keeps the UI responsive while still allowing correction after dropped UDP commands or stale assumptions.
 
 ## API
 
@@ -146,6 +168,7 @@ Returns the full controller status payload used by the UI, including:
 - enabled and disabled device IDs
 - online and enabled counts
 - global transition duration
+- global default scene Kelvin
 - available scenes
 - last scene action
 
@@ -172,13 +195,19 @@ Request body:
 {
   "name": "Gentle Evening",
   "description": "Soft warm white",
+  "power": "on",
   "hue": 35,
   "saturation": 0.22,
-  "brightness": 0.6
+  "brightness": 0.6,
+  "kelvin": 3200
 }
 ```
 
-The saved scene ID is derived from `name`.
+Notes:
+
+- the saved scene ID is derived from `name`
+- saving persists the scene definition only
+- live scene preview is handled separately through `/api/scene-preview`
 
 ### `POST /api/scene-preview`
 
@@ -244,6 +273,24 @@ Request body:
 
 Returns the updated status payload.
 
+### `POST /api/brightness`
+
+Sends a live brightness-only command to currently targeted online bulbs while preserving their current hue, saturation, and Kelvin.
+
+Request body:
+
+```json
+{
+  "brightnessPercent": 65
+}
+```
+
+Returns:
+
+- `ok`
+- `result`
+- `status`
+
 ### `POST /api/restart`
 
 Requests a clean in-app restart through the launcher.
@@ -263,4 +310,5 @@ This route only restarts correctly when the app was started through `npm start` 
 
 - The app is designed for local LAN control, not the LIFX cloud API.
 - The official LIFX app can show stale state independently of this controller; this app does not depend on cloud state to operate.
-- White-spectrum swatches in the UI are intentionally display-oriented approximations, not exact photometric renderings.
+- UI swatches and scene button colors are display-oriented approximations, not exact photometric renderings.
+- Modern browsers use an OKLCH-based preview pipeline where supported, with RGB fallback for older environments and Web Views.

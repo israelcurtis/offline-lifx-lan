@@ -192,6 +192,9 @@ function applyLocalTargetState(enabledTargetIds, disabledTargetIds) {
 		return;
 	}
 
+	// Targeting is local persisted controller state, not a confirmed bulb-state round trip.
+	// Update the current status snapshot optimistically so the ENABLED/DISABLED pills feel instant,
+	// then let the normal status response reconcile the rest of the payload.
 	const enabledIdSet = new Set(enabledTargetIds);
 	const disabledIdSet = new Set(disabledTargetIds);
 	const nextLights = (currentStatus.lights ?? []).map((light) => {
@@ -235,6 +238,9 @@ function createLiveCommandQueue({
 	onError,
 	refresh
 }) {
+	// Shared live-control queue for brightness override and scene preview.
+	// It coalesces rapid UI changes down to the newest payload, avoids overlapping requests,
+	// and schedules a later status refresh so optimistic UI can reconcile with reported bulb state.
 	let requestInFlight = false;
 	let pendingPayload = null;
 	let dispatchTimer = null;
@@ -1303,6 +1309,8 @@ function getSceneCardState(scene) {
 	const actionableTargetCount = currentStatus?.lights?.filter((light) => light.targeted && light.status === "on").length ?? 0;
 	const isUnavailable = !editingSceneId && actionableTargetCount === 0;
 	const isDisabled = editingSceneId ? !isEditing : isUnavailable;
+	// Keep focus and disabled behavior explicit here so scene-card styling and interaction rules
+	// stay in sync. While editing, the active card remains usable and all others become muted/disabled.
 	const focusState = editingSceneId
 		? (isEditing ? "editing" : "muted")
 		: (isUnavailable ? "disabled" : "idle");

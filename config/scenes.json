@@ -2,12 +2,12 @@
   {
     "id": "daylight-focus",
     "name": "Daylight Focus",
-    "description": "Bright cool white",
+    "description": "Bright cool tones",
     "power": "on",
     "hue": 210,
     "saturation": 0,
     "brightness": 0.9,
-    "kelvin": 7300
+    "kelvin": 5500
   },
   {
     "id": "gentle-evening",
@@ -32,7 +32,7 @@
   {
     "id": "night-light",
     "name": "Night Light",
-    "description": "Very low warm light",
+    "description": "Barely there warm light",
     "power": "on",
     "hue": 22,
     "saturation": 0,
@@ -72,7 +72,7 @@
   {
     "id": "all-off",
     "name": "All Off",
-    "description": "Every light fully off.",
+    "description": "Everyone go to sleep!",
     "power": "off",
     "hue": 0,
     "saturation": 0,

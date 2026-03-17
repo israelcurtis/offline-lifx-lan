@@ -664,6 +664,9 @@ export class LifxController extends EventEmitter {
               light.off(durationMs, callback);
             });
 
+            // The UI reads from lightStateCache immediately after commands return. Update the
+            // cache optimistically here so device cards and scene feedback respond right away,
+            // then let the next forced/background poll reconcile any bulb that missed the UDP command.
             this.lightStateCache.set(light.id, {
               ...resolvedState,
               power: "off",
@@ -788,6 +791,8 @@ export class LifxController extends EventEmitter {
   }
 
   async previewScene(scene) {
+    // Preview commands intentionally share the same scene-command path, but must not mutate
+    // lastAction because editing should not change which saved scene the UI considers "applied".
     return this.runSceneCommand(scene, {
       durationMs: LIVE_SCENE_PREVIEW_TRANSITION_MS,
       updateLastAction: false

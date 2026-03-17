@@ -331,6 +331,10 @@ body {
 	filter: var(--scene-icon-filter, brightness(0) invert(1));
 	object-fit: contain;
 	pointer-events: none;
+	backface-visibility: hidden;
+	transform: translateZ(0);
+	transform-origin: center;
+	transition: transform 160ms ease;
 }
 
 .scene-edit-button {
@@ -664,6 +668,10 @@ body {
 
 .scene-apply-button:hover:not(:disabled) {
 	transform: scale(1.03);
+}
+
+.scene-apply-button:hover:not(:disabled) .scene-trigger-icon {
+	transform: translateZ(0) scale(0.971);
 }
 
 .ghost-button:disabled {

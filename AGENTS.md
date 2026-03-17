@@ -32,6 +32,9 @@ Important files:
 - `src/lifx-controller.js`
 - `src/network-interfaces.js`
 - `src/controller-config-store.js`
+- `src/known-devices-store.js`
+- `src/scene-store.js`
+- `src/scene-utils.js`
 - `src/config.js`
 - `src/app-paths.js`
 
@@ -188,9 +191,9 @@ This behavior was tuned to avoid visually jarring “old color first” transiti
 
 Do not casually change this without testing perceptual behavior, not just protocol correctness.
 
-## Manual Brightness Control
+## Brightness Override
 
-There is a separate “Manual Brightness” slider in controller status.
+There is a separate `Brightness Override` slider in controller status.
 
 Intent:
 
@@ -216,7 +219,7 @@ Important behavior:
 - `0%` turns bulbs off
 - moving back up from `0%` powers them on again while preserving color
 
-### Manual brightness tuning
+### Brightness override tuning
 
 At the time this file was written, the live brightness tuning settled on:
 
@@ -227,7 +230,7 @@ This was chosen by visual testing.
 
 Lower values were tried and felt worse.
 
-### Polling during manual brightness drag
+### Polling during brightness drag
 
 Important frontend decision:
 
@@ -241,12 +244,14 @@ Reason:
 
 ### Scene editor live preview
 
-The scene editor uses the same fast live-control model as manual brightness:
+The scene editor uses the same fast live-control model as brightness override:
 
 - frontend dispatch cadence: `100ms`
 - backend preview transition: `100ms`
 - preview commands should not overwrite `lastAction`
 - saving a scene should persist the draft, not re-apply it again
+- scene preview is sent through `POST /api/scene-preview`
+- editor live preview and brightness override share a reusable frontend live-command queue in `public/app.js`
 
 ## Device State / Polling
 
@@ -270,7 +275,14 @@ Normal background polling interval:
 But note:
 
 - scene application blocks refreshes temporarily
-- manual brightness drag also suppresses refresh churn
+- brightness override drag also suppresses refresh churn
+- scene editor preview also suppresses refresh churn while editing
+
+Important current behavior:
+
+- the UI now updates immediately from optimistic cache writes after scene apply, scene preview, and brightness override commands
+- later polling reconciles back to actual bulb-reported state
+- this is intentional and should not be mistaken for a faster poll interval
 
 ## UI Semantics
 
@@ -286,19 +298,21 @@ Current card design:
 
 - swatch
 - label
-- brightness/hue/kelvin line
+- brightness + hue or brightness + kelvin line depending on current state
 - IP
 - device ID
-- `Online` / `Offline` badge
-- clickable `Enabled` / `Disabled` badge
+- green/red connectivity badge using icon-only `wifi` / warning glyphs
+- clickable uppercase `ENABLED` / `DISABLED` badge
 
 ### Disabled visuals
 
-Disabled devices/subnet groups are intentionally greyed out.
+Disabled individual devices are intentionally greyed out.
 
 Reason:
 
 - neutral disabled styling was preferred over alarm-like red styling
+
+Subnet group panels are not dimmed.
 
 ### Swatches
 
@@ -308,7 +322,8 @@ Important details:
 
 - off bulbs use a slashed outlined circle, not grey fill
 - white-spectrum bulbs use a curated kelvin mapping to look closer to real warm/cool white
-- brightness is visually compressed so low-brightness bulbs remain legible in the UI
+- modern browsers use an OKLCH-based preview path with separate lightness curves for saturated color vs white-temperature scenes
+- fallback remains RGB for older environments / Web Views
 
 ### Scene trigger icons
 
@@ -319,6 +334,30 @@ Reason:
 - Platypus Web View rendered CSS mask icons poorly
 
 Do not switch back to CSS masks unless you re-test packaged Web View rendering.
+
+### Scene cards / editor
+
+Current important UI behavior:
+
+- scene cards are reused in place during polling; do not casually revert to full card re-creation or the icons will flicker again
+- only one scene can be edited at a time
+- the editor is a standalone full-width panel below the scene grid, not inline inside a card
+- on mobile widths, opening the editor scrolls to it; on larger widths it does not
+- while editing, the active source scene card stays normal and all other scene cards are dimmed and disabled
+- scene-card border indicates the last applied scene
+- scene-button feedback (`Applied` / `Updated`) is temporary and reverts to the send icon after 4 seconds
+- saving a scene should not trigger a second apply; live preview already moved the bulbs
+
+### Controller status panel
+
+Current layout:
+
+- `Restart Server` stays in controller status
+- `Rescan LAN` sits beside the `Devices` section heading
+- controller metrics are:
+  - `Brightness Override`
+  - `Transition Duration`
+  - `Enabled / Available`
 
 ### Sliders
 
@@ -420,7 +459,10 @@ This `AGENTS.md` should stay focused on instructions and operational context for
 - Prefer preserving the current multi-interface LAN design.
 - Prefer preserving the current per-device targeting model.
 - Do not reintroduce expected bulb-count logic.
-- Treat scene transitions and manual brightness as separate behaviors.
+- Treat scene transitions and brightness override as separate behaviors.
+- Treat device targeting toggles as local persisted UI state, not as a bulb-state/network operation.
+- Preserve the optimistic-cache + later-reconciliation model unless you are intentionally redesigning status behavior.
+- If touching `public/app.js`, protect the current keyed DOM-reuse approach for scene cards and device cards.
 - Re-test Platypus behavior after changes to icons, lifecycle, or path resolution.
 - If backend code changes while the app is running, use the in-app `Restart Server` button to reload it.
 - If frontend-only code changes, a normal refresh is usually enough.

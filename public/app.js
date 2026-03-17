@@ -31,6 +31,9 @@ let editingSceneDraft = null;
 
 const LIVE_BRIGHTNESS_DISPATCH_INTERVAL_MS = 100;
 const LIVE_BRIGHTNESS_REFRESH_DELAY_MS = 300;
+const supportsOklch = typeof CSS !== "undefined"
+	&& typeof CSS.supports === "function"
+	&& CSS.supports("color", "oklch(62% 0.16 210)");
 
 function setBusyState(nextBusyState) {
 	isSubmitting = nextBusyState;
@@ -68,6 +71,10 @@ function formatPercentLabel(value) {
 
 function formatKelvinLabel(kelvin) {
 	return `${Math.round(kelvin)}K`;
+}
+
+function clampNumber(value, min, max) {
+	return Math.min(max, Math.max(min, value));
 }
 
 function deriveSceneId(name) {
@@ -223,12 +230,60 @@ function rgbToCss({ red, green, blue }) {
 	return `rgb(${red}, ${green}, ${blue})`;
 }
 
-function compressSwatchBrightness(brightness) {
-	if (brightness <= 0) {
-		return 0;
+function srgbChannelToLinear(channel) {
+	const normalized = channel / 255;
+	if (normalized <= 0.04045) {
+		return normalized / 12.92;
 	}
 
-	return 25 + (brightness * 0.75);
+	return ((normalized + 0.055) / 1.055) ** 2.4;
+}
+
+function rgbToOklch({ red, green, blue }) {
+	const linearRed = srgbChannelToLinear(red);
+	const linearGreen = srgbChannelToLinear(green);
+	const linearBlue = srgbChannelToLinear(blue);
+
+	const l = (0.4122214708 * linearRed) + (0.5363325363 * linearGreen) + (0.0514459929 * linearBlue);
+	const m = (0.2119034982 * linearRed) + (0.6806995451 * linearGreen) + (0.1073969566 * linearBlue);
+	const s = (0.0883024619 * linearRed) + (0.2817188376 * linearGreen) + (0.6299787005 * linearBlue);
+
+	const lRoot = Math.cbrt(l);
+	const mRoot = Math.cbrt(m);
+	const sRoot = Math.cbrt(s);
+
+	const lightness = (0.2104542553 * lRoot) + (0.793617785 * mRoot) - (0.0040720468 * sRoot);
+	const a = (1.9779984951 * lRoot) - (2.428592205 * mRoot) + (0.4505937099 * sRoot);
+	const b = (0.0259040371 * lRoot) + (0.7827717662 * mRoot) - (0.808675766 * sRoot);
+	const chroma = Math.sqrt((a ** 2) + (b ** 2));
+	const hue = (Math.atan2(b, a) * (180 / Math.PI) + 360) % 360;
+
+	return {
+		lightness,
+		chroma,
+		hue
+	};
+}
+
+function toOklchCss(baseRgb, brightnessPercent, fallbackRgb, { floor = 0.38, exponent = 0.58 } = {}) {
+	if (!supportsOklch) {
+		return rgbToCss(fallbackRgb);
+	}
+
+	const brightnessRatio = clampNumber(brightnessPercent / 100, 0, 1);
+	if (brightnessRatio <= 0) {
+		return "rgb(0, 0, 0)";
+	}
+
+	const oklch = rgbToOklch(baseRgb);
+	const liftedBrightnessRatio = floor + ((brightnessRatio ** exponent) * (1 - floor));
+	const adjustedLightness = clampNumber(oklch.lightness * liftedBrightnessRatio, 0, 1);
+	const adjustedChroma = oklch.chroma * (0.9 + (brightnessRatio * 0.1));
+	return `oklch(${(adjustedLightness * 100).toFixed(2)}% ${adjustedChroma.toFixed(4)} ${oklch.hue.toFixed(2)})`;
+}
+
+function compressSwatchBrightness(brightness) {
+	return clampNumber(Number(brightness) || 0, 0, 100);
 }
 
 function scaleRgbBrightness(rgb, brightness) {
@@ -249,22 +304,54 @@ function scaleKelvinSwatchBrightness(rgb, brightness) {
 	};
 }
 
-function getSceneButtonRgb(scene) {
+function getPerceptualHueColor(hue, saturation, brightnessPercent) {
+	const normalizedSaturation = clampNumber(Math.round(saturation), 0, 100);
+	const normalizedBrightness = clampNumber(Math.round(brightnessPercent), 0, 100);
+	const baseRgb = hsbToRgb(hue, normalizedSaturation, 100);
+	const fallbackRgb = hsbToRgb(hue, normalizedSaturation, normalizedBrightness);
+
+	return {
+		cssColor: toOklchCss(baseRgb, normalizedBrightness, fallbackRgb, {
+			floor: 0.38,
+			exponent: 0.58
+		}),
+		rgb: fallbackRgb
+	};
+}
+
+function getPerceptualKelvinColor(kelvin, brightnessPercent) {
+	const normalizedBrightness = clampNumber(Math.round(brightnessPercent), 0, 100);
+	const baseRgb = kelvinToRgb(kelvin);
+	const fallbackRgb = scaleKelvinSwatchBrightness(baseRgb, normalizedBrightness);
+
+	return {
+		cssColor: toOklchCss(baseRgb, normalizedBrightness, fallbackRgb, {
+			floor: 0.54,
+			exponent: 0.52
+		}),
+		rgb: fallbackRgb
+	};
+}
+
+function getSceneButtonAppearance(scene) {
 	if (scene.power === "off" || Number(scene.brightness ?? 0) <= 0) {
-		return { red: 0, green: 0, blue: 0 };
+		return {
+			cssColor: "rgb(0, 0, 0)",
+			rgb: { red: 0, green: 0, blue: 0 }
+		};
 	}
 
 	if ((scene.saturation ?? 0) <= 0.08) {
-		return scaleKelvinSwatchBrightness(
-			kelvinToRgb(scene.kelvin ?? 3500),
-			Math.max(52, Math.round((scene.brightness ?? 0) * 100))
+		return getPerceptualKelvinColor(
+			scene.kelvin ?? 3500,
+			Math.round((scene.brightness ?? 0) * 100)
 		);
 	}
 
-	return hsbToRgb(
+	return getPerceptualHueColor(
 		scene.hue ?? 0,
 		Math.max(22, Math.round((scene.saturation ?? 0) * 100)),
-		Math.max(52, Math.round((scene.brightness ?? 0) * 100))
+		Math.round((scene.brightness ?? 0) * 100)
 	);
 }
 
@@ -274,16 +361,14 @@ function getStateSwatchColor(currentState) {
 	}
 
 	if (currentState.saturation <= 8) {
-		return rgbToCss(scaleKelvinSwatchBrightness(kelvinToRgb(currentState.kelvin), currentState.brightness));
+		return getPerceptualKelvinColor(currentState.kelvin, currentState.brightness).cssColor;
 	}
 
-	return rgbToCss(
-		hsbToRgb(
-			currentState.hue,
-			currentState.saturation,
-			compressSwatchBrightness(currentState.brightness)
-		)
-	);
+	return getPerceptualHueColor(
+		currentState.hue,
+		currentState.saturation,
+		currentState.brightness
+	).cssColor;
 }
 
 function getStateLabel(currentState) {
@@ -685,16 +770,16 @@ function renderSceneEditor(scenes) {
 		const indicatorPosition = getHueWheelPosition(editingSceneDraft.hue, editingSceneDraft.saturation);
 		hueIndicator.style.left = `${indicatorPosition.x}%`;
 		hueIndicator.style.top = `${indicatorPosition.y}%`;
-		huePreview.style.background = rgbToCss(hsbToRgb(
+		huePreview.style.background = getPerceptualHueColor(
 			editingSceneDraft.hue,
 			editingSceneDraft.saturation,
-			Math.max(35, editingSceneDraft.brightness)
-		));
+			editingSceneDraft.brightness
+		).cssColor;
 		kelvinValue.textContent = formatKelvinLabel(editingSceneDraft.kelvin);
-		kelvinPreview.style.background = rgbToCss(scaleKelvinSwatchBrightness(
-			kelvinToRgb(editingSceneDraft.kelvin),
-			Math.max(35, editingSceneDraft.brightness)
-		));
+		kelvinPreview.style.background = getPerceptualKelvinColor(
+			editingSceneDraft.kelvin,
+			editingSceneDraft.brightness
+		).cssColor;
 	}
 
 	nameInput.addEventListener("input", (event) => {
@@ -889,11 +974,12 @@ function updateSceneCard(card, scene) {
 		setSceneEditor(scene);
 	};
 	button.onclick = () => applyScene(scene.id);
-	const buttonRgb = getSceneButtonRgb(scene);
+	const buttonAppearance = getSceneButtonAppearance(scene);
+	const buttonRgb = buttonAppearance.rgb;
 	const buttonRingColor = "rgba(255, 255, 255, 0.58)";
 	const buttonForeground = getSceneButtonForeground(buttonRgb);
-	button.style.backgroundColor = rgbToCss(buttonRgb);
-	button.style.setProperty("--scene-button-bg", rgbToCss(buttonRgb));
+	button.style.background = buttonAppearance.cssColor;
+	button.style.setProperty("--scene-button-bg", buttonAppearance.cssColor);
 	button.style.setProperty("--scene-button-fg", buttonForeground);
 	button.style.setProperty("--scene-button-ring", buttonRingColor);
 	button.style.setProperty("--scene-button-border", getSceneButtonBorder(scene, buttonRgb));

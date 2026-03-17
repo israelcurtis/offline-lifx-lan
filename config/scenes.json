@@ -56,17 +56,17 @@
     "power": "on",
     "hue": 240,
     "saturation": 1,
-    "brightness": 1,
+    "brightness": 0.08,
     "kelvin": 3500
   },
   {
-    "id": "purple",
-    "name": "Purple",
+    "id": "green",
+    "name": "Green",
     "description": "it’s tasty!",
     "power": "on",
-    "hue": 275,
+    "hue": 135,
     "saturation": 1,
-    "brightness": 1,
+    "brightness": 0.03,
     "kelvin": 1500
   },
   {

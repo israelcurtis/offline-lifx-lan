@@ -1,6 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeScene, pickTargetLights, validateScenes } from "../src/scene-utils.js";
+import {
+  deriveSceneId,
+  normalizeScene,
+  pickTargetLights,
+  validateScenes
+} from "../src/scene-utils.js";
+
+test("deriveSceneId slugifies names", () => {
+  assert.equal(deriveSceneId(" Gentle Evening! "), "gentle-evening");
+  assert.equal(deriveSceneId("Crème Brûlée"), "creme-brulee");
+});
+
+test("deriveSceneId rejects empty names", () => {
+  assert.throws(() => deriveSceneId("   "), /Scene name must contain/);
+});
 
 test("normalizeScene clamps values into valid ranges", () => {
   const scene = normalizeScene({

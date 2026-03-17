@@ -3,11 +3,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 import { LifxController } from "./lifx-controller.js";
-import { validateScenes } from "./scene-utils.js";
+import { deriveSceneId, validateScenes } from "./scene-utils.js";
+import { saveScenesConfig } from "./scene-store.js";
 
 const RESTART_EXIT_CODE = 75;
 const config = loadConfig();
-const scenes = validateScenes(config.scenes);
+let scenes = validateScenes(config.scenes);
 const app = express();
 const controller = new LifxController(config);
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -37,6 +38,55 @@ app.post("/api/scenes/:sceneId", async (req, res, next) => {
       ok: true,
       scene,
       lastAction,
+      status: controller.getStatusPayload(scenes)
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.put("/api/scenes/:sceneId", async (req, res, next) => {
+  try {
+    const sceneIndex = scenes.findIndex((entry) => entry.id === req.params.sceneId);
+    if (sceneIndex < 0) {
+      res.status(404).json({ ok: false, error: "Scene not found." });
+      return;
+    }
+
+    const existingScene = scenes[sceneIndex];
+    const nextScene = {
+      ...existingScene,
+      id: deriveSceneId(req.body?.name),
+      name: String(req.body?.name ?? "").trim(),
+      description: String(req.body?.description ?? "").trim(),
+      hue: req.body?.hue ?? existingScene.hue,
+      saturation: req.body?.saturation ?? existingScene.saturation,
+      brightness: req.body?.brightness ?? existingScene.brightness,
+      kelvin: req.body?.kelvin ?? existingScene.kelvin
+    };
+
+    const nextScenes = scenes.map((scene, index) => (index === sceneIndex ? nextScene : scene));
+    const validatedScenes = validateScenes(nextScenes);
+    const savedScene = validatedScenes[sceneIndex];
+
+    saveScenesConfig(validatedScenes);
+    scenes = validatedScenes;
+    controller.reconcileSceneUpdate(existingScene.id, savedScene);
+    let lastAction = null;
+    let applyError = null;
+
+    try {
+      lastAction = await controller.applyScene(savedScene);
+    } catch (error) {
+      applyError = error instanceof Error ? error.message : String(error);
+    }
+
+    res.json({
+      ok: true,
+      previousSceneId: existingScene.id,
+      scene: savedScene,
+      lastAction,
+      applyError,
       status: controller.getStatusPayload(scenes)
     });
   } catch (error) {

@@ -3,6 +3,8 @@ const warningText = document.querySelector("#warning-text");
 const onlineCount = document.querySelector("#online-count");
 const targetedCount = document.querySelector("#targeted-count");
 const sceneGrid = document.querySelector("#scene-grid");
+const sceneEditorSection = document.querySelector("#scene-editor-section");
+const sceneEditorContainer = document.querySelector("#scene-editor-container");
 const lightGrid = document.querySelector("#light-grid");
 const discoverButton = document.querySelector("#discover-button");
 const restartButton = document.querySelector("#restart-button");
@@ -17,19 +19,22 @@ let isSubmitting = false;
 let currentStatus = null;
 let activeActivity = "";
 let activityClearTimer = null;
+let recentlyUpdatedSceneId = null;
 let isAdjustingTransitionDuration = false;
 let isAdjustingLiveBrightness = false;
 let liveBrightnessRequestInFlight = false;
 let pendingLiveBrightnessPercent = null;
 let liveBrightnessDispatchTimer = null;
 let liveBrightnessRefreshTimer = null;
+let editingSceneId = null;
+let editingSceneDraft = null;
 
 const LIVE_BRIGHTNESS_DISPATCH_INTERVAL_MS = 100;
 const LIVE_BRIGHTNESS_REFRESH_DELAY_MS = 300;
 
 function setBusyState(nextBusyState) {
 	isSubmitting = nextBusyState;
-	for (const button of document.querySelectorAll("[data-scene-id]")) {
+	for (const button of document.querySelectorAll("[data-scene-trigger-id], [data-scene-editor-id], [data-scene-editor-action]")) {
 		button.disabled = nextBusyState;
 	}
 	for (const button of document.querySelectorAll("[data-address-group]")) {
@@ -55,6 +60,27 @@ function formatBrightnessLabel(brightnessPercent) {
 	}
 
 	return `${Math.round(brightnessPercent)}%`;
+}
+
+function formatPercentLabel(value) {
+	return `${Math.round(value)}%`;
+}
+
+function formatKelvinLabel(kelvin) {
+	return `${Math.round(kelvin)}K`;
+}
+
+function deriveSceneId(name) {
+	const normalized = String(name ?? "")
+		.normalize("NFKD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.toLowerCase()
+		.replace(/[^a-z0-9\s-]/g, " ")
+		.trim()
+		.replace(/[\s-]+/g, "-")
+		.replace(/^-+|-+$/g, "");
+
+	return normalized;
 }
 
 function updateSliderProgress(slider, value) {
@@ -221,6 +247,25 @@ function scaleKelvinSwatchBrightness(rgb, brightness) {
 		green: Math.round(rgb.green * factor),
 		blue: Math.round(rgb.blue * factor)
 	};
+}
+
+function getSceneButtonRgb(scene) {
+	if (scene.power === "off" || Number(scene.brightness ?? 0) <= 0) {
+		return { red: 0, green: 0, blue: 0 };
+	}
+
+	if ((scene.saturation ?? 0) <= 0.08) {
+		return scaleKelvinSwatchBrightness(
+			kelvinToRgb(scene.kelvin ?? 3500),
+			Math.max(52, Math.round((scene.brightness ?? 0) * 100))
+		);
+	}
+
+	return hsbToRgb(
+		scene.hue ?? 0,
+		Math.max(22, Math.round((scene.saturation ?? 0) * 100)),
+		Math.max(52, Math.round((scene.brightness ?? 0) * 100))
+	);
 }
 
 function getStateSwatchColor(currentState) {
@@ -392,11 +437,389 @@ function renderLights(lights) {
 }
 
 function sceneDescription(scene) {
+	return scene.description;
+}
+
+function sceneSettingsLabel(scene) {
 	if (scene.power === "off") {
-		return scene.description;
+		return "Power: Off";
 	}
 
-	return `${scene.description} ${Math.round(scene.brightness * 100)}% brightness, ${scene.kelvin}K.`;
+	if ((scene.saturation ?? 0) <= 0.08) {
+		return `${Math.round(scene.brightness * 100)}% brightness · ${scene.kelvin}K`;
+	}
+
+	return `${Math.round(scene.brightness * 100)}% brightness · ${Math.round(scene.hue)}° hue`;
+}
+
+function makeSceneDraft(scene) {
+	return {
+		name: scene.name,
+		description: scene.description ?? "",
+		hue: Math.round(scene.hue ?? 0),
+		saturation: Math.round((scene.saturation ?? 0) * 100),
+		brightness: Math.round((scene.brightness ?? 0) * 100),
+		kelvin: Math.round(scene.kelvin ?? 3500),
+		colorMode: (scene.saturation ?? 0) <= 0.08 ? "white" : "color"
+	};
+}
+
+function getSceneButtonBorder(scene, rgb) {
+	if (scene.power === "off") {
+		return "rgba(255, 255, 255, 0.12)";
+	}
+
+	if ((scene.saturation ?? 0) <= 0.08) {
+		return "rgba(31, 28, 24, 0.16)";
+	}
+
+	return "rgba(255, 255, 255, 0.16)";
+}
+
+function getSceneIconFilter(rgb) {
+	const luminance = ((0.2126 * rgb.red) + (0.7152 * rgb.green) + (0.0722 * rgb.blue)) / 255;
+	return luminance > 0.68
+		? "brightness(0) saturate(100%)"
+		: "brightness(0) invert(1)";
+}
+
+function getSceneButtonForeground(rgb) {
+	const luminance = ((0.2126 * rgb.red) + (0.7152 * rgb.green) + (0.0722 * rgb.blue)) / 255;
+	return luminance > 0.68 ? "#1f1c18" : "#ffffff";
+}
+
+function setSceneEditor(scene) {
+	editingSceneId = scene.id;
+	editingSceneDraft = makeSceneDraft(scene);
+	renderScenes(currentStatus?.scenes ?? []);
+	renderSceneEditor(currentStatus?.scenes ?? []);
+}
+
+function clearSceneEditor() {
+	editingSceneId = null;
+	editingSceneDraft = null;
+	renderScenes(currentStatus?.scenes ?? []);
+	renderSceneEditor(currentStatus?.scenes ?? []);
+}
+
+function getHueWheelPosition(hue, saturation) {
+	const angle = ((Number(hue) % 360) * Math.PI) / 180;
+	const radius = Math.max(0, Math.min(1, Number(saturation) / 100));
+	return {
+		x: 50 + (Math.cos(angle) * radius * 50),
+		y: 50 + (Math.sin(angle) * radius * 50)
+	};
+}
+
+function updateSceneDraftFromWheel(event, wheel, onChange) {
+	const rect = wheel.getBoundingClientRect();
+	const offsetX = event.clientX - rect.left - (rect.width / 2);
+	const offsetY = event.clientY - rect.top - (rect.height / 2);
+	const radius = rect.width / 2;
+	const normalizedDistance = Math.min(1, Math.sqrt((offsetX ** 2) + (offsetY ** 2)) / radius);
+	const angle = (Math.atan2(offsetY, offsetX) * (180 / Math.PI) + 360) % 360;
+
+	editingSceneDraft = {
+		...editingSceneDraft,
+		hue: Math.round(angle),
+		saturation: Math.round(normalizedDistance * 100)
+	};
+	onChange();
+}
+
+function renderSceneEditor(scenes) {
+	const scene = scenes.find((entry) => entry.id === editingSceneId);
+	sceneEditorContainer.replaceChildren();
+
+	if (!scene || !editingSceneDraft) {
+		sceneEditorSection.hidden = true;
+		return;
+	}
+
+	sceneEditorSection.hidden = false;
+
+	if (editingSceneId !== scene.id || !editingSceneDraft) {
+		return;
+	}
+
+	const editor = document.createElement("div");
+	editor.className = "scene-editor";
+	const editorHeader = document.createElement("div");
+	editorHeader.className = "scene-editor-header";
+	const editorTitle = document.createElement("h3");
+	editorTitle.className = "scene-editor-title";
+	editorTitle.textContent = `Editing ${scene.name}`;
+	const editorSubtitle = document.createElement("p");
+	editorSubtitle.className = "scene-editor-subtitle";
+	editorSubtitle.textContent = "Update the scene details and color settings, then save to rewrite scenes.json.";
+	editorHeader.append(editorTitle, editorSubtitle);
+
+	const fieldGrid = document.createElement("div");
+	fieldGrid.className = "scene-editor-grid";
+
+	const modeField = document.createElement("div");
+	modeField.className = "scene-editor-field scene-editor-mode-field";
+	const modeLabel = document.createElement("span");
+	modeLabel.textContent = "Light Type";
+	const modeToggle = document.createElement("div");
+	modeToggle.className = "scene-mode-toggle";
+	const colorModeButton = document.createElement("button");
+	colorModeButton.type = "button";
+	colorModeButton.className = "scene-mode-button";
+	colorModeButton.textContent = "Color";
+	const whiteModeButton = document.createElement("button");
+	whiteModeButton.type = "button";
+	whiteModeButton.className = "scene-mode-button";
+	whiteModeButton.textContent = "White";
+	modeToggle.append(colorModeButton, whiteModeButton);
+	modeField.append(modeLabel, modeToggle);
+
+	const nameField = document.createElement("label");
+	nameField.className = "scene-editor-field";
+	const nameLabel = document.createElement("span");
+	nameLabel.textContent = "Name";
+	const nameInput = document.createElement("input");
+	nameInput.className = "scene-editor-input";
+	nameInput.type = "text";
+	nameInput.value = editingSceneDraft.name;
+	nameField.append(nameLabel, nameInput);
+
+	const descriptionField = document.createElement("label");
+	descriptionField.className = "scene-editor-field";
+	const descriptionLabel = document.createElement("span");
+	descriptionLabel.textContent = "Description";
+	const descriptionInput = document.createElement("input");
+	descriptionInput.className = "scene-editor-input";
+	descriptionInput.type = "text";
+	descriptionInput.value = editingSceneDraft.description;
+	descriptionField.append(descriptionLabel, descriptionInput);
+
+	const hueField = document.createElement("div");
+	hueField.className = "scene-editor-field scene-editor-color-field";
+	const hueLabel = document.createElement("span");
+	hueLabel.textContent = "Color";
+	const hueWheel = document.createElement("div");
+	hueWheel.className = "scene-hue-wheel";
+	const hueIndicator = document.createElement("div");
+	hueIndicator.className = "scene-hue-indicator";
+	hueWheel.append(hueIndicator);
+	const hueMeta = document.createElement("div");
+	hueMeta.className = "scene-editor-meta";
+	const huePreview = document.createElement("div");
+	huePreview.className = "scene-editor-preview";
+	const hueValue = document.createElement("div");
+	hueValue.className = "scene-editor-value";
+	hueMeta.append(huePreview, hueValue);
+	hueField.append(hueLabel, hueWheel, hueMeta);
+
+	const kelvinField = document.createElement("label");
+	kelvinField.className = "scene-editor-field scene-editor-color-field";
+	const kelvinLabel = document.createElement("span");
+	kelvinLabel.textContent = "White Temperature";
+	const kelvinSlider = document.createElement("input");
+	kelvinSlider.className = "transition-slider scene-editor-slider scene-kelvin-slider";
+	kelvinSlider.type = "range";
+	kelvinSlider.min = "1500";
+	kelvinSlider.max = "9000";
+	kelvinSlider.step = "100";
+	const kelvinMeta = document.createElement("div");
+	kelvinMeta.className = "scene-editor-meta";
+	const kelvinPreview = document.createElement("div");
+	kelvinPreview.className = "scene-editor-preview";
+	const kelvinValue = document.createElement("div");
+	kelvinValue.className = "scene-editor-value";
+	kelvinMeta.append(kelvinPreview, kelvinValue);
+	kelvinField.append(kelvinLabel, kelvinSlider, kelvinMeta);
+
+	const brightnessField = document.createElement("label");
+	brightnessField.className = "scene-editor-field";
+	const brightnessLabel = document.createElement("span");
+	brightnessLabel.textContent = "Brightness";
+	const brightnessSlider = document.createElement("input");
+	brightnessSlider.className = "transition-slider scene-editor-slider";
+	brightnessSlider.type = "range";
+	brightnessSlider.min = "0";
+	brightnessSlider.max = "100";
+	brightnessSlider.step = "1";
+	const brightnessValue = document.createElement("div");
+	brightnessValue.className = "scene-editor-value";
+	brightnessField.append(brightnessLabel, brightnessSlider, brightnessValue);
+
+	fieldGrid.append(modeField, hueField, kelvinField, nameField, descriptionField, brightnessField);
+
+	const actions = document.createElement("div");
+	actions.className = "scene-editor-actions";
+	const cancelButton = document.createElement("button");
+	cancelButton.type = "button";
+	cancelButton.className = "scene-editor-button scene-editor-button-secondary";
+	cancelButton.dataset.sceneEditorAction = "cancel";
+	cancelButton.textContent = "Cancel";
+	const saveButton = document.createElement("button");
+	saveButton.type = "button";
+	saveButton.className = "scene-editor-button scene-editor-button-primary";
+	saveButton.dataset.sceneEditorAction = "save";
+	saveButton.textContent = "Save";
+	actions.append(cancelButton, saveButton);
+
+	editor.append(editorHeader, fieldGrid, actions);
+	sceneEditorContainer.append(editor);
+	let isDraggingHueWheel = false;
+
+	function updateEditorDisplay() {
+		if (document.activeElement !== nameInput) {
+			nameInput.value = editingSceneDraft.name;
+		}
+		if (document.activeElement !== descriptionInput) {
+			descriptionInput.value = editingSceneDraft.description;
+		}
+		brightnessSlider.value = String(editingSceneDraft.brightness);
+		updateSliderProgress(brightnessSlider, brightnessSlider.value);
+		brightnessValue.textContent = formatPercentLabel(editingSceneDraft.brightness);
+		colorModeButton.dataset.active = String(editingSceneDraft.colorMode === "color");
+		whiteModeButton.dataset.active = String(editingSceneDraft.colorMode === "white");
+		hueField.hidden = editingSceneDraft.colorMode !== "color";
+		kelvinField.hidden = editingSceneDraft.colorMode !== "white";
+		kelvinSlider.value = String(editingSceneDraft.kelvin);
+		updateSliderProgress(kelvinSlider, kelvinSlider.value);
+		hueValue.textContent = `${Math.round(editingSceneDraft.hue)}° · ${Math.round(editingSceneDraft.saturation)}% sat`;
+		const indicatorPosition = getHueWheelPosition(editingSceneDraft.hue, editingSceneDraft.saturation);
+		hueIndicator.style.left = `${indicatorPosition.x}%`;
+		hueIndicator.style.top = `${indicatorPosition.y}%`;
+		huePreview.style.background = rgbToCss(hsbToRgb(
+			editingSceneDraft.hue,
+			editingSceneDraft.saturation,
+			Math.max(35, editingSceneDraft.brightness)
+		));
+		kelvinValue.textContent = formatKelvinLabel(editingSceneDraft.kelvin);
+		kelvinPreview.style.background = rgbToCss(scaleKelvinSwatchBrightness(
+			kelvinToRgb(editingSceneDraft.kelvin),
+			Math.max(35, editingSceneDraft.brightness)
+		));
+	}
+
+	nameInput.addEventListener("input", (event) => {
+		editingSceneDraft = {
+			...editingSceneDraft,
+			name: event.target.value
+		};
+		updateEditorDisplay();
+	});
+
+	descriptionInput.addEventListener("input", (event) => {
+		editingSceneDraft = {
+			...editingSceneDraft,
+			description: event.target.value
+		};
+	});
+
+	colorModeButton.addEventListener("click", () => {
+		editingSceneDraft = {
+			...editingSceneDraft,
+			colorMode: "color"
+		};
+		updateEditorDisplay();
+	});
+
+	whiteModeButton.addEventListener("click", () => {
+		editingSceneDraft = {
+			...editingSceneDraft,
+			colorMode: "white"
+		};
+		updateEditorDisplay();
+	});
+
+	brightnessSlider.addEventListener("input", (event) => {
+		editingSceneDraft = {
+			...editingSceneDraft,
+			brightness: Number(event.target.value)
+		};
+		updateEditorDisplay();
+	});
+
+	kelvinSlider.addEventListener("input", (event) => {
+		editingSceneDraft = {
+			...editingSceneDraft,
+			kelvin: Number(event.target.value)
+		};
+		updateEditorDisplay();
+	});
+
+	kelvinSlider.addEventListener("change", (event) => {
+		editingSceneDraft = {
+			...editingSceneDraft,
+			kelvin: Number(event.target.value)
+		};
+		updateEditorDisplay();
+	});
+
+	hueWheel.addEventListener("pointerdown", (event) => {
+		event.preventDefault();
+		isDraggingHueWheel = true;
+		hueWheel.setPointerCapture(event.pointerId);
+		updateSceneDraftFromWheel(event, hueWheel, updateEditorDisplay);
+	});
+
+	hueWheel.addEventListener("pointermove", (event) => {
+		if (!isDraggingHueWheel) {
+			return;
+		}
+
+		updateSceneDraftFromWheel(event, hueWheel, updateEditorDisplay);
+	});
+
+	hueWheel.addEventListener("pointerup", () => {
+		isDraggingHueWheel = false;
+	});
+
+	hueWheel.addEventListener("lostpointercapture", () => {
+		isDraggingHueWheel = false;
+	});
+
+	cancelButton.addEventListener("click", () => {
+		clearSceneEditor();
+	});
+
+	saveButton.addEventListener("click", async () => {
+		try {
+			setBusyState(true);
+			const response = await fetch(`/api/scenes/${scene.id}`, {
+				method: "PUT",
+				headers: {
+					"Content-Type": "application/json"
+				},
+				body: JSON.stringify({
+					name: editingSceneDraft.name,
+					description: editingSceneDraft.description,
+					hue: editingSceneDraft.hue,
+					saturation: editingSceneDraft.colorMode === "white" ? 0 : editingSceneDraft.saturation / 100,
+					brightness: editingSceneDraft.brightness / 100,
+					kelvin: Number(kelvinSlider.value)
+				})
+			});
+			const payload = await response.json();
+			if (!response.ok) {
+				throw new Error(payload.error ?? "Failed to save scene.");
+			}
+
+			if (activeSceneId === payload.previousSceneId) {
+				activeSceneId = payload.scene.id;
+			}
+
+			recentlyUpdatedSceneId = payload.scene.id;
+			editingSceneId = null;
+			editingSceneDraft = null;
+			renderStatus(payload.status);
+			if (payload.applyError) {
+				statusText.textContent = `Scene saved, but applying it failed: ${payload.applyError}`;
+			}
+		} catch (error) {
+			statusText.textContent = error.message;
+		} finally {
+			setBusyState(false);
+		}
+	});
+
+	updateEditorDisplay();
 }
 
 function createSceneCard(scene) {
@@ -404,36 +827,86 @@ function createSceneCard(scene) {
 	card.className = "scene-card";
 	card.dataset.sceneId = scene.id;
 
+	const header = document.createElement("div");
+	header.className = "scene-card-header";
 	const title = document.createElement("h2");
-	const description = document.createElement("p");
-	const button = document.createElement("button");
-	button.addEventListener("click", () => applyScene(scene.id));
+	const editButton = document.createElement("button");
+	editButton.type = "button";
+	editButton.className = "scene-edit-button";
+	editButton.dataset.sceneEditorId = scene.id;
+	const editIcon = document.createElement("img");
+	editIcon.className = "scene-edit-icon";
+	editIcon.src = "/assets/iconoir/regular/edit-pencil.svg";
+	editIcon.alt = "";
+	editIcon.setAttribute("aria-hidden", "true");
+	editButton.append(editIcon);
+	header.append(title, editButton);
 
-	card.append(title, description, button);
+	const description = document.createElement("p");
+	const settings = document.createElement("p");
+	settings.className = "scene-settings-meta";
+	const button = document.createElement("button");
+	button.type = "button";
+	button.className = "scene-apply-button";
+	const buttonIcon = document.createElement("img");
+	buttonIcon.className = "scene-trigger-icon";
+	buttonIcon.src = "/assets/iconoir/solid/send.svg";
+	buttonIcon.alt = "";
+	buttonIcon.setAttribute("aria-hidden", "true");
+	const buttonLabel = document.createElement("span");
+	buttonLabel.className = "scene-apply-label";
+	button.append(buttonIcon, buttonLabel);
+
+	card.append(header, description, settings, button);
 	return card;
 }
 
 function updateSceneCard(card, scene) {
 	const title = card.querySelector("h2");
 	const description = card.querySelector("p");
-	const button = card.querySelector("button");
+	const settings = card.querySelector(".scene-settings-meta");
+	const button = card.querySelector(".scene-apply-button");
+	const editButton = card.querySelector(".scene-edit-button");
+	const buttonIcon = card.querySelector(".scene-trigger-icon");
+	const buttonLabel = card.querySelector(".scene-apply-label");
 	const isApplied = activeSceneId === scene.id;
+	const isEditing = editingSceneId === scene.id;
 
+	card.dataset.sceneId = scene.id;
 	card.dataset.active = String(isApplied);
+	card.dataset.editing = String(isEditing);
 	title.textContent = scene.name;
 	description.textContent = sceneDescription(scene);
-	button.replaceChildren();
+	settings.textContent = sceneSettingsLabel(scene);
+	editButton.disabled = isSubmitting;
+	editButton.setAttribute("aria-label", `Edit ${scene.name}`);
+	editButton.onclick = () => {
+		if (editingSceneId === scene.id) {
+			clearSceneEditor();
+			return;
+		}
+
+		setSceneEditor(scene);
+	};
+	button.onclick = () => applyScene(scene.id);
+	const buttonRgb = getSceneButtonRgb(scene);
+	const buttonRingColor = "rgba(255, 255, 255, 0.58)";
+	const buttonForeground = getSceneButtonForeground(buttonRgb);
+	button.style.backgroundColor = rgbToCss(buttonRgb);
+	button.style.setProperty("--scene-button-bg", rgbToCss(buttonRgb));
+	button.style.setProperty("--scene-button-fg", buttonForeground);
+	button.style.setProperty("--scene-button-ring", buttonRingColor);
+	button.style.setProperty("--scene-button-border", getSceneButtonBorder(scene, buttonRgb));
+	button.style.setProperty("--scene-icon-filter", getSceneIconFilter(buttonRgb));
 	if (isApplied) {
-		button.textContent = "Applied";
+		buttonLabel.textContent = recentlyUpdatedSceneId === scene.id ? "Updated" : "Applied";
+		buttonLabel.hidden = false;
+		buttonIcon.hidden = true;
 	} else {
-		const icon = document.createElement("img");
-		icon.className = "scene-trigger-icon";
-		icon.src = "/assets/iconoir/solid/send.svg";
-		icon.alt = "";
-		icon.setAttribute("aria-hidden", "true");
-		button.append(icon);
+		buttonLabel.hidden = true;
+		buttonIcon.hidden = false;
 	}
-	button.dataset.sceneId = scene.id;
+	button.dataset.sceneTriggerId = scene.id;
 	button.dataset.applied = String(isApplied);
 	button.setAttribute("aria-label", isApplied ? `${scene.name} applied` : `Trigger ${scene.name}`);
 	button.style.setProperty("--scene-transition-ms", `${currentStatus?.transitionDurationMs ?? 1000}ms`);
@@ -441,38 +914,14 @@ function updateSceneCard(card, scene) {
 }
 
 function renderScenes(scenes) {
-	const existingCards = new Map(
-		[...sceneGrid.querySelectorAll(".scene-card")].map((card) => [card.dataset.sceneId, card])
-	);
-
-	if (existingCards.size === 0) {
-		const cards = scenes.map((scene) => {
-			const card = createSceneCard(scene);
-			updateSceneCard(card, scene);
-			return card;
-		});
-		sceneGrid.replaceChildren(...cards);
-		return;
-	}
-
-	const seenIds = new Set();
-
-	for (const scene of scenes) {
-		let card = existingCards.get(scene.id);
-		if (!card) {
-			card = createSceneCard(scene);
-			sceneGrid.append(card);
-		}
-
+	const existingCards = [...sceneGrid.querySelectorAll(".scene-card")];
+	const nextCards = scenes.map((scene, index) => {
+		const card = existingCards[index] ?? createSceneCard(scene);
 		updateSceneCard(card, scene);
-		seenIds.add(scene.id);
-	}
+		return card;
+	});
 
-	for (const [sceneId, card] of existingCards) {
-		if (!seenIds.has(sceneId)) {
-			card.remove();
-		}
-	}
+	sceneGrid.replaceChildren(...nextCards);
 }
 
 function renderStatus(payload) {
@@ -503,6 +952,7 @@ function renderStatus(payload) {
 		setActivity("");
 	}
 	renderScenes(payload.scenes);
+	renderSceneEditor(payload.scenes);
 	renderLights(payload.lights);
 }
 
@@ -549,6 +999,7 @@ async function applyScene(sceneId) {
 		if (!response.ok) {
 			throw new Error(payload.error ?? "Failed to apply scene.");
 		}
+		recentlyUpdatedSceneId = null;
 		activeSceneId = sceneId;
 		renderStatus(payload.status);
 	} catch (error) {
@@ -821,7 +1272,7 @@ brightnessSlider.addEventListener("blur", () => {
 });
 
 setInterval(() => {
-	if (!isSubmitting && !isAdjustingLiveBrightness && !liveBrightnessRequestInFlight) {
+	if (!isSubmitting && !isAdjustingLiveBrightness && !liveBrightnessRequestInFlight && !editingSceneId) {
 		loadStatus().catch((error) => {
 			statusText.textContent = error.message;
 		});

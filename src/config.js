@@ -1,24 +1,15 @@
 import dotenv from "dotenv";
-import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { appRootDir, resolveFromAppRoot } from "./app-paths.js";
+import { appRootDir } from "./app-paths.js";
 import { getControllerConfigFilePath, loadControllerConfig } from "./controller-config-store.js";
 import { loadKnownDevicesState } from "./known-devices-store.js";
+import { loadScenesConfig } from "./scene-store.js";
 
 dotenv.config({ path: path.join(appRootDir, ".env"), quiet: true });
 
-const defaultScenePath = path.join(appRootDir, "config", "scenes.json");
 const controllerConfig = loadControllerConfig();
 const knownDevicesState = loadKnownDevicesState();
-
-function readSceneConfig() {
-  const scenePath = process.env.SCENES_PATH
-    ? resolveFromAppRoot(process.env.SCENES_PATH)
-    : defaultScenePath;
-  const raw = fs.readFileSync(scenePath, "utf8");
-  return JSON.parse(raw);
-}
 
 export function loadConfig() {
   return {
@@ -41,6 +32,6 @@ export function loadConfig() {
     disabledTargetIds: knownDevicesState.disabledIds,
     transitionDurationMs: controllerConfig.transitionDurationMs,
     controllerConfigPath: getControllerConfigFilePath(),
-    scenes: readSceneConfig()
+    scenes: loadScenesConfig()
   };
 }

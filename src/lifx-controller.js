@@ -617,6 +617,18 @@ export class LifxController extends EventEmitter {
     };
   }
 
+  reconcileSceneUpdate(previousSceneId, scene) {
+    if (this.lastAction?.sceneId !== previousSceneId) {
+      return;
+    }
+
+    this.lastAction = {
+      ...this.lastAction,
+      sceneId: scene.id,
+      sceneName: scene.name
+    };
+  }
+
   async applyScene(scene) {
     const targetLights = this.getTargetLights();
     if (targetLights.length === 0) {

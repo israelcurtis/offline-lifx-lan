@@ -325,6 +325,7 @@ Current routes in `src/server.js`:
 
 - `GET /api/status`
 - `POST /api/scenes/:sceneId`
+- `PUT /api/scenes/:sceneId`
 - `POST /api/discover`
 - `POST /api/targets`
 - `POST /api/address-groups`

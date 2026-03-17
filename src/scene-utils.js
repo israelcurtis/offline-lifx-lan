@@ -2,6 +2,23 @@ export function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+export function deriveSceneId(name) {
+  const normalized = String(name ?? "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .trim()
+    .replace(/[\s-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  if (!normalized) {
+    throw new Error("Scene name must contain at least one letter or number.");
+  }
+
+  return normalized;
+}
+
 export function normalizeScene(scene) {
   return {
     ...scene,

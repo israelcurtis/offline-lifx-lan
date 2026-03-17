@@ -7,6 +7,7 @@ Offline local controller for LIFX bulbs using the LIFX LAN protocol and a small 
 - Discovers bulbs across multiple active private IPv4 interfaces on the host.
 - Works across separated home subnets when the Mac has reachability to them.
 - Applies synchronized preset scenes from a browser UI.
+- Lets you edit existing scenes from the browser UI and persist them back to `scenes.json`.
 - Uses one global transition duration for all scene changes, controlled by a slider in the UI.
 - Shows live device state with per-bulb swatches, brightness, hue, and kelvin.
 - Lets you enable or disable individual bulbs from being affected by Scene changes.
@@ -158,6 +159,24 @@ Response shape:
 - `status`
 
 If the scene ID does not exist, the route returns `404` with `{ ok: false, error }`.
+
+### `PUT /api/scenes/:sceneId`
+
+Updates an existing scene, persists the edited scene list back to the configured `scenes.json` file, and then immediately tries to apply the updated preset.
+
+Request body:
+
+```json
+{
+  "name": "Gentle Evening",
+  "description": "Soft warm white",
+  "hue": 35,
+  "saturation": 0.22,
+  "brightness": 0.6
+}
+```
+
+The saved scene ID is derived from `name`.
 
 ### `POST /api/discover`
 

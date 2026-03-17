@@ -293,7 +293,6 @@ function renderLightCard(light) {
 	const onlinePill = document.createElement("span");
 	onlinePill.className = `pill ${light.status === "on" ? "online" : "offline"}`;
 	onlinePill.textContent = light.status === "on" ? "Online" : "Offline";
-	pillRow.append(onlinePill);
 
 	const targetingPillTag = currentStatus?.manualTargetingEnabled ? "button" : "span";
 	const targetingPill = document.createElement(targetingPillTag);
@@ -311,6 +310,7 @@ function renderLightCard(light) {
 	}
 
 	pillRow.append(targetingPill);
+	pillRow.append(onlinePill);
 
 	card.append(header, stateLabel, address, identifier, pillRow);
 
@@ -338,19 +338,41 @@ function renderLights(lights) {
 		headerText.className = "device-group-summary";
 		const title = document.createElement("h3");
 		title.textContent = group.label;
-		const summary = document.createElement("p");
-		summary.innerHTML = `${group.onlineCount}/${group.count} online<br>${group.enabledCount} enabled`;
-		headerText.append(title, summary);
+		const stats = document.createElement("div");
+		stats.className = "device-group-stats";
 
-		const toggle = document.createElement("button");
-		toggle.className = "light-toggle device-group-toggle";
-		toggle.dataset.addressGroup = group.key;
-		toggle.textContent = group.fullyEnabled ? "Disable All Devices In Subnet" : "Enable All Devices In Subnet";
-		toggle.disabled = isSubmitting || !currentStatus?.manualTargetingEnabled;
-		toggle.addEventListener("click", () => toggleAddressGroup(group.key, !group.fullyEnabled));
+		const onlineStat = document.createElement("span");
+		onlineStat.className = "device-group-stat";
+		onlineStat.textContent = `${group.onlineCount}/${group.count} online`;
+
+		const enabledStat = document.createElement("span");
+		enabledStat.className = "device-group-stat";
+		enabledStat.textContent = `${group.enabledCount} enabled`;
+
+		stats.append(onlineStat, enabledStat);
+		headerText.append(title, stats);
+
+		const actions = document.createElement("div");
+		actions.className = "device-group-actions";
+
+		const enableButton = document.createElement("button");
+		enableButton.className = "device-group-toggle";
+		enableButton.dataset.addressGroup = group.key;
+		enableButton.textContent = "Enable All";
+		enableButton.disabled = isSubmitting || !currentStatus?.manualTargetingEnabled;
+		enableButton.addEventListener("click", () => toggleAddressGroup(group.key, true));
+
+		const disableButton = document.createElement("button");
+		disableButton.className = "device-group-toggle";
+		disableButton.dataset.addressGroup = group.key;
+		disableButton.textContent = "Disable All";
+		disableButton.disabled = isSubmitting || !currentStatus?.manualTargetingEnabled;
+		disableButton.addEventListener("click", () => toggleAddressGroup(group.key, false));
+
+		actions.append(enableButton, disableButton);
 
 		header.append(headerText);
-		header.append(toggle);
+		header.append(actions);
 		wrapper.append(header);
 
 		const grid = document.createElement("div");

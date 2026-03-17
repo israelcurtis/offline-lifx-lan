@@ -244,6 +244,7 @@ body {
 
 .scene-card button {
 	width: 100%;
+	min-height: 44px;
 	border: 0;
 	border-radius: 999px;
 	padding: 10px 16px;
@@ -292,8 +293,8 @@ body {
 	background: rgba(247, 178, 103, 0.26);
 }
 
-.scene-card button:hover {
-	transform: translateY(-1px);
+.scene-card button:hover:not(:disabled) {
+	transform: scale(1.03);
 }
 
 .ghost-button:disabled {
@@ -315,23 +316,32 @@ body {
 	padding: 18px;
 	border: 1px solid var(--line);
 	border-radius: 24px;
-	background: rgba(255, 255, 255, 0.62);
+	background: rgba(255, 255, 255, 0.68);
 	box-shadow: var(--shadow);
 	transition: opacity 180ms ease, filter 180ms ease, background-color 180ms ease;
 }
 
-.device-group[data-enabled="false"] {
-	opacity: 0.62;
-	filter: saturate(0.72);
-	background: rgba(245, 241, 235, 0.7);
-}
-
 .device-group-header {
 	display: flex;
-	align-items: end;
-	justify-content: space-between;
+	align-items: center;
+	justify-content: flex-start;
+	flex-wrap: wrap;
 	gap: 16px;
 	margin-bottom: 14px;
+	padding: 14px 16px;
+	border-radius: 20px;
+	background: linear-gradient(135deg, #5a5248 0%, #3f3932 100%);
+	color: #fffaf3;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.device-group-actions {
+	display: flex;
+	flex-wrap: nowrap;
+	flex: 0 0 auto;
+	align-items: center;
+	gap: 8px;
+	align-self: center;
 }
 
 .device-group-header h3 {
@@ -339,19 +349,66 @@ body {
 	font-size: 1.2rem;
 }
 
-.device-group-summary p {
-	line-height: 1.45;
+.device-group-summary {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	flex-wrap: wrap;
+	flex: 0 1 auto;
+	min-width: 0;
 }
 
-.device-group-header p {
-	margin: 4px 0 0;
-	color: var(--muted);
+.device-group-stats {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.device-group-stat {
+	display: inline-flex;
+	align-items: center;
+	padding: 6px 10px;
+	border-radius: 999px;
+	background: rgba(255, 250, 243, 0.14);
+	color: rgba(255, 250, 243, 0.92);
+	font-size: 0.82rem;
+	font-weight: 600;
+	letter-spacing: 0.02em;
 }
 
 .device-group-toggle {
+	appearance: none;
+	-webkit-appearance: none;
+	border: 1px solid rgba(63, 57, 50, 0.12);
+	border-radius: 999px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 	width: auto;
-	min-width: 152px;
+	flex: 0 0 auto;
+	min-width: 0;
 	margin-top: 0;
+	align-self: center;
+	white-space: nowrap;
+	padding: 6px 12px;
+	font-size: 0.82rem;
+	font-weight: 600;
+	line-height: 1;
+	color: #3f3932;
+	background: rgba(255, 250, 243, 0.96);
+	cursor: pointer;
+	transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.device-group-toggle:hover:not(:disabled) {
+	background: rgba(239, 232, 223, 0.98);
+	border-color: rgba(63, 57, 50, 0.18);
+	transform: scale(1.03);
+}
+
+.device-group-toggle:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
 }
 
 .device-group-grid {
@@ -366,9 +423,13 @@ body {
 }
 
 .light-card[data-enabled="false"] {
+	background: rgba(243, 239, 233, 0.72);
+}
+
+.light-card[data-enabled="false"] .light-card-header,
+.light-card[data-enabled="false"] .light-meta {
 	opacity: 0.56;
 	filter: saturate(0.68);
-	background: rgba(243, 239, 233, 0.72);
 }
 
 .light-card-header {
@@ -442,7 +503,7 @@ body {
 	border-radius: 999px;
 	padding: 6px 10px;
 	font-size: 0.78rem;
-	font-weight: 700;
+	font-weight: 600;
 	letter-spacing: 0.03em;
 }
 
@@ -457,8 +518,8 @@ body {
 }
 
 .pill.enabled {
-	background: rgba(77, 88, 99, 0.14);
-	color: #48525d;
+	background: #3f3932;
+	color: #ffffff;
 }
 
 .pill.disabled {
@@ -477,7 +538,7 @@ body {
 }
 
 .pill-toggle:hover:not(:disabled) {
-	transform: translateY(-1px);
+	transform: scale(1.03);
 	box-shadow: inset 0 0 0 1px rgba(31, 28, 24, 0.08);
 }
 
@@ -492,10 +553,14 @@ body {
 	border-radius: 999px;
 	padding: 10px 12px;
 	font: inherit;
-	font-weight: 700;
+	font-weight: 600;
 	color: var(--text);
 	background: rgba(255, 255, 255, 0.84);
 	cursor: pointer;
+}
+
+.light-toggle:hover:not(:disabled) {
+	background: rgba(235, 229, 221, 0.96);
 }
 
 .light-toggle:disabled {
@@ -523,5 +588,13 @@ body {
 	.status-actions {
 		width: 100%;
 		justify-content: stretch;
+	}
+
+	.device-group-summary {
+		width: 100%;
+	}
+
+	.device-group-actions {
+		width: 100%;
 	}
 }

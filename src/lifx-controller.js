@@ -401,8 +401,12 @@ export class LifxController extends EventEmitter {
   }
 
   setTransitionDurationMs(transitionDurationMs) {
-    const savedConfig = saveControllerConfig({ transitionDurationMs });
+    const savedConfig = saveControllerConfig({
+      transitionDurationMs,
+      defaultSceneKelvin: this.config.defaultSceneKelvin
+    });
     this.config.transitionDurationMs = savedConfig.transitionDurationMs;
+    this.config.defaultSceneKelvin = savedConfig.defaultSceneKelvin;
     console.log(`Global transition duration set to ${savedConfig.transitionDurationMs}ms.`);
     this.emit("update", {
       type: "transition-duration-updated",
@@ -594,6 +598,7 @@ export class LifxController extends EventEmitter {
       enabledTargetIds: this.config.enabledTargetIds,
       disabledTargetIds: this.config.disabledTargetIds,
       transitionDurationMs: this.config.transitionDurationMs,
+      defaultSceneKelvin: this.config.defaultSceneKelvin,
       liveBrightnessPercent: this.getLiveBrightnessPercent(),
       manualTargetingEnabled: !this.hasFixedTargetSelector(),
       interfaces: this.clientContexts.map((context) => ({

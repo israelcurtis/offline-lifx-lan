@@ -31,6 +31,7 @@ export function loadConfig() {
     enabledTargetIds: knownDevicesState.enabledIds,
     disabledTargetIds: knownDevicesState.disabledIds,
     transitionDurationMs: controllerConfig.transitionDurationMs,
+    defaultSceneKelvin: controllerConfig.defaultSceneKelvin,
     controllerConfigPath: getControllerConfigFilePath(),
     scenes: loadScenesConfig()
   };

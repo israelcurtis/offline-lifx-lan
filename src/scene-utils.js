@@ -2,6 +2,8 @@ export function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+export const DEFAULT_SCENE_KELVIN = 5500;
+
 export function deriveSceneId(name) {
   const normalized = String(name ?? "")
     .normalize("NFKD")
@@ -19,18 +21,18 @@ export function deriveSceneId(name) {
   return normalized;
 }
 
-export function normalizeScene(scene) {
+export function normalizeScene(scene, { defaultSceneKelvin = DEFAULT_SCENE_KELVIN } = {}) {
   return {
     ...scene,
     power: scene.power === "off" ? "off" : "on",
     hue: clamp(Number(scene.hue ?? 0), 0, 360),
     saturation: clamp(Number(scene.saturation ?? 0), 0, 1),
     brightness: clamp(Number(scene.brightness ?? 0), 0, 1),
-    kelvin: clamp(Number(scene.kelvin ?? 3500), 1500, 9000)
+    kelvin: clamp(Number(scene.kelvin ?? defaultSceneKelvin), 1500, 9000)
   };
 }
 
-export function validateScenes(scenes) {
+export function validateScenes(scenes, options = {}) {
   if (!Array.isArray(scenes) || scenes.length === 0) {
     throw new Error("Scene configuration must be a non-empty array.");
   }
@@ -46,7 +48,7 @@ export function validateScenes(scenes) {
     }
 
     ids.add(scene.id);
-    return normalizeScene(scene);
+    return normalizeScene(scene, options);
   });
 }
 

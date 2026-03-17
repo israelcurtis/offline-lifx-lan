@@ -31,6 +31,8 @@ let editingSceneDraft = null;
 
 const LIVE_BRIGHTNESS_DISPATCH_INTERVAL_MS = 100;
 const LIVE_BRIGHTNESS_REFRESH_DELAY_MS = 300;
+const MIN_SCENE_BRIGHTNESS_PERCENT = 5;
+const FALLBACK_DEFAULT_SCENE_KELVIN = 5500;
 const supportsOklch = typeof CSS !== "undefined"
 	&& typeof CSS.supports === "function"
 	&& CSS.supports("color", "oklch(62% 0.16 210)");
@@ -75,6 +77,17 @@ function formatKelvinLabel(kelvin) {
 
 function clampNumber(value, min, max) {
 	return Math.min(max, Math.max(min, value));
+}
+
+function getEditableSceneBrightnessPercent(brightnessPercent, colorMode) {
+	const normalizedBrightness = clampNumber(Number(brightnessPercent) || 0, 0, 100);
+	return colorMode === "off"
+		? 0
+		: clampNumber(normalizedBrightness, MIN_SCENE_BRIGHTNESS_PERCENT, 100);
+}
+
+function getDefaultSceneKelvin() {
+	return Math.round(currentStatus?.defaultSceneKelvin ?? FALLBACK_DEFAULT_SCENE_KELVIN);
 }
 
 function deriveSceneId(name) {
@@ -343,7 +356,7 @@ function getSceneButtonAppearance(scene) {
 
 	if ((scene.saturation ?? 0) <= 0.08) {
 		return getPerceptualKelvinColor(
-			scene.kelvin ?? 3500,
+			scene.kelvin ?? getDefaultSceneKelvin(),
 			Math.round((scene.brightness ?? 0) * 100)
 		);
 	}
@@ -538,14 +551,15 @@ function sceneSettingsLabel(scene) {
 }
 
 function makeSceneDraft(scene) {
+	const colorMode = scene.power === "off" ? "off" : (scene.saturation ?? 0) <= 0.08 ? "white" : "color";
 	return {
 		name: scene.name,
 		description: scene.description ?? "",
 		hue: Math.round(scene.hue ?? 0),
 		saturation: Math.round((scene.saturation ?? 0) * 100),
-		brightness: Math.round((scene.brightness ?? 0) * 100),
-		kelvin: Math.round(scene.kelvin ?? 3500),
-		colorMode: (scene.saturation ?? 0) <= 0.08 ? "white" : "color"
+		brightness: getEditableSceneBrightnessPercent(Math.round((scene.brightness ?? 0) * 100), colorMode),
+		kelvin: Math.round(scene.kelvin ?? getDefaultSceneKelvin()),
+		colorMode
 	};
 }
 
@@ -645,7 +659,7 @@ function renderSceneEditor(scenes) {
 	const modeField = document.createElement("div");
 	modeField.className = "scene-editor-field scene-editor-mode-field";
 	const modeLabel = document.createElement("span");
-	modeLabel.textContent = "Light Type";
+	modeLabel.textContent = "Light Mode";
 	const modeToggle = document.createElement("div");
 	modeToggle.className = "scene-mode-toggle";
 	const colorModeButton = document.createElement("button");
@@ -656,7 +670,11 @@ function renderSceneEditor(scenes) {
 	whiteModeButton.type = "button";
 	whiteModeButton.className = "scene-mode-button";
 	whiteModeButton.textContent = "White";
-	modeToggle.append(colorModeButton, whiteModeButton);
+	const offModeButton = document.createElement("button");
+	offModeButton.type = "button";
+	offModeButton.className = "scene-mode-button";
+	offModeButton.textContent = "Off";
+	modeToggle.append(colorModeButton, whiteModeButton, offModeButton);
 	modeField.append(modeLabel, modeToggle);
 
 	const nameField = document.createElement("label");
@@ -723,7 +741,7 @@ function renderSceneEditor(scenes) {
 	const brightnessSlider = document.createElement("input");
 	brightnessSlider.className = "transition-slider scene-editor-slider";
 	brightnessSlider.type = "range";
-	brightnessSlider.min = "0";
+	brightnessSlider.min = String(MIN_SCENE_BRIGHTNESS_PERCENT);
 	brightnessSlider.max = "100";
 	brightnessSlider.step = "1";
 	const brightnessValue = document.createElement("div");
@@ -757,13 +775,15 @@ function renderSceneEditor(scenes) {
 		if (document.activeElement !== descriptionInput) {
 			descriptionInput.value = editingSceneDraft.description;
 		}
-		brightnessSlider.value = String(editingSceneDraft.brightness);
+			brightnessSlider.value = String(editingSceneDraft.brightness);
 		updateSliderProgress(brightnessSlider, brightnessSlider.value);
 		brightnessValue.textContent = formatPercentLabel(editingSceneDraft.brightness);
 		colorModeButton.dataset.active = String(editingSceneDraft.colorMode === "color");
 		whiteModeButton.dataset.active = String(editingSceneDraft.colorMode === "white");
+		offModeButton.dataset.active = String(editingSceneDraft.colorMode === "off");
 		hueField.hidden = editingSceneDraft.colorMode !== "color";
 		kelvinField.hidden = editingSceneDraft.colorMode !== "white";
+		brightnessField.hidden = editingSceneDraft.colorMode === "off";
 		kelvinSlider.value = String(editingSceneDraft.kelvin);
 		updateSliderProgress(kelvinSlider, kelvinSlider.value);
 		hueValue.textContent = `${Math.round(editingSceneDraft.hue)}° · ${Math.round(editingSceneDraft.saturation)}% sat`;
@@ -800,7 +820,8 @@ function renderSceneEditor(scenes) {
 	colorModeButton.addEventListener("click", () => {
 		editingSceneDraft = {
 			...editingSceneDraft,
-			colorMode: "color"
+			colorMode: "color",
+			brightness: getEditableSceneBrightnessPercent(editingSceneDraft.brightness, "color")
 		};
 		updateEditorDisplay();
 	});
@@ -808,7 +829,16 @@ function renderSceneEditor(scenes) {
 	whiteModeButton.addEventListener("click", () => {
 		editingSceneDraft = {
 			...editingSceneDraft,
-			colorMode: "white"
+			colorMode: "white",
+			brightness: getEditableSceneBrightnessPercent(editingSceneDraft.brightness, "white")
+		};
+		updateEditorDisplay();
+	});
+
+	offModeButton.addEventListener("click", () => {
+		editingSceneDraft = {
+			...editingSceneDraft,
+			colorMode: "off"
 		};
 		updateEditorDisplay();
 	});
@@ -816,7 +846,7 @@ function renderSceneEditor(scenes) {
 	brightnessSlider.addEventListener("input", (event) => {
 		editingSceneDraft = {
 			...editingSceneDraft,
-			brightness: Number(event.target.value)
+			brightness: getEditableSceneBrightnessPercent(event.target.value, editingSceneDraft.colorMode)
 		};
 		updateEditorDisplay();
 	});
@@ -875,10 +905,13 @@ function renderSceneEditor(scenes) {
 				body: JSON.stringify({
 					name: editingSceneDraft.name,
 					description: editingSceneDraft.description,
+					power: editingSceneDraft.colorMode === "off" ? "off" : "on",
 					hue: editingSceneDraft.hue,
 					saturation: editingSceneDraft.colorMode === "white" ? 0 : editingSceneDraft.saturation / 100,
-					brightness: editingSceneDraft.brightness / 100,
-					kelvin: Number(kelvinSlider.value)
+					brightness: editingSceneDraft.colorMode === "off" ? 0 : getEditableSceneBrightnessPercent(editingSceneDraft.brightness, editingSceneDraft.colorMode) / 100,
+					kelvin: editingSceneDraft.colorMode === "white"
+						? Number(kelvinSlider.value)
+						: getDefaultSceneKelvin()
 				})
 			});
 			const payload = await response.json();

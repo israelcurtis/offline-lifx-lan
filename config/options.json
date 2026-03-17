@@ -1,3 +1,4 @@
 {
-  "transitionDurationMs": 600
+  "transitionDurationMs": 600,
+  "defaultSceneKelvin": 5500
 }

@@ -92,6 +92,7 @@ Tracked controller config lives in `config/options.json`.
 Current keys:
 
 - `transitionDurationMs`
+- `defaultSceneKelvin`
 
 Per-machine device targeting state lives in `config/known-devices.json`, which is intentionally gitignored.
 
@@ -118,6 +119,7 @@ Each scene supports:
 - `kelvin` (`1500-9000`)
 
 Scene files no longer carry per-scene transition durations. Transition timing is global and comes from the UI slider / `config/options.json`.
+Missing scene Kelvin values are normalized from the global `defaultSceneKelvin` option in `config/options.json`.
 
 ## Browser UI
 
@@ -220,7 +222,8 @@ Request body:
 
 ```json
 {
-  "transitionDurationMs": 1000
+  "transitionDurationMs": 1000,
+  "defaultSceneKelvin": 5500
 }
 ```
 

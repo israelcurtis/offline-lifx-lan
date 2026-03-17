@@ -8,7 +8,7 @@ import { saveScenesConfig } from "./scene-store.js";
 
 const RESTART_EXIT_CODE = 75;
 const config = loadConfig();
-let scenes = validateScenes(config.scenes);
+let scenes = validateScenes(config.scenes, { defaultSceneKelvin: config.defaultSceneKelvin });
 const app = express();
 const controller = new LifxController(config);
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -59,6 +59,7 @@ app.put("/api/scenes/:sceneId", async (req, res, next) => {
       id: deriveSceneId(req.body?.name),
       name: String(req.body?.name ?? "").trim(),
       description: String(req.body?.description ?? "").trim(),
+      power: req.body?.power ?? existingScene.power,
       hue: req.body?.hue ?? existingScene.hue,
       saturation: req.body?.saturation ?? existingScene.saturation,
       brightness: req.body?.brightness ?? existingScene.brightness,
@@ -66,7 +67,7 @@ app.put("/api/scenes/:sceneId", async (req, res, next) => {
     };
 
     const nextScenes = scenes.map((scene, index) => (index === sceneIndex ? nextScene : scene));
-    const validatedScenes = validateScenes(nextScenes);
+    const validatedScenes = validateScenes(nextScenes, { defaultSceneKelvin: config.defaultSceneKelvin });
     const savedScene = validatedScenes[sceneIndex];
 
     saveScenesConfig(validatedScenes);

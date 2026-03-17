@@ -134,6 +134,7 @@ Targeting is per-device only.
 Persistent keys in `config/options.json`:
 
 - `transitionDurationMs`
+- `defaultSceneKelvin`
 
 Persistent keys in `config/known-devices.json`:
 
@@ -174,6 +175,7 @@ Current timing model:
 - one global transition duration
 - controlled by the UI
 - stored in `config/options.json` as `transitionDurationMs`
+- missing scene Kelvin values fall back to `config/options.json` `defaultSceneKelvin`
 
 ## Scene Transition Behavior
 

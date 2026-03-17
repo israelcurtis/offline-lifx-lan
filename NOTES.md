@@ -115,6 +115,7 @@ Persistent controller state lives in:
 Current keys:
 
 - `transitionDurationMs`
+- `defaultSceneKelvin`
 
 Per-machine known-device targeting state lives in:
 
@@ -148,6 +149,7 @@ Current model:
 - one global transition duration
 - stored in `config/options.json` as `transitionDurationMs`
 - controlled from the UI slider
+- missing scene Kelvin values fall back to `config/options.json` `defaultSceneKelvin`
 
 ### Scene transitions
 

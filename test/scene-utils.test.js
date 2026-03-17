@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  DEFAULT_SCENE_KELVIN,
   deriveSceneId,
   normalizeScene,
   pickTargetLights,
@@ -30,6 +31,31 @@ test("normalizeScene clamps values into valid ranges", () => {
   assert.equal(scene.saturation, 1);
   assert.equal(scene.brightness, 0);
   assert.equal(scene.kelvin, 9000);
+});
+
+test("normalizeScene defaults missing kelvin to neutral white", () => {
+  const scene = normalizeScene({
+    id: "neutral",
+    name: "Neutral",
+    power: "on"
+  });
+
+  assert.equal(scene.kelvin, DEFAULT_SCENE_KELVIN);
+});
+
+test("normalizeScene accepts an override for default kelvin", () => {
+  const scene = normalizeScene(
+    {
+      id: "neutral",
+      name: "Neutral",
+      power: "on"
+    },
+    {
+      defaultSceneKelvin: 6500
+    }
+  );
+
+  assert.equal(scene.kelvin, 6500);
 });
 
 test("validateScenes rejects duplicate ids", () => {

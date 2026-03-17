@@ -123,8 +123,10 @@ Per-machine known-device targeting state lives in:
 
 Current keys:
 
-- `enabledIds`
-- `disabledIds`
+- `devices`
+  - `id`
+  - `enabled`
+  - `color`
 
 Important simplification:
 

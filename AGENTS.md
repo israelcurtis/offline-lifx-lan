@@ -141,8 +141,10 @@ Persistent keys in `config/options.json`:
 
 Persistent keys in `config/known-devices.json`:
 
-- `enabledIds`
-- `disabledIds`
+- `devices`
+  - `id`
+  - `enabled`
+  - `color` when capability metadata has been discovered
 
 Important:
 
@@ -302,6 +304,7 @@ Current card design:
 - IP
 - device ID
 - green/red connectivity badge using icon-only `wifi` / warning glyphs
+- RGB / White capability indicator from discovery-time hardware metadata
 - clickable uppercase `ENABLED` / `DISABLED` badge
 
 ### Disabled visuals

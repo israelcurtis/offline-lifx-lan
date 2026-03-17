@@ -28,8 +28,7 @@ export function loadConfig() {
       .split(",")
       .map((value) => value.trim())
       .filter(Boolean),
-    enabledTargetIds: knownDevicesState.enabledIds,
-    disabledTargetIds: knownDevicesState.disabledIds,
+    knownDevices: knownDevicesState.devices,
     transitionDurationMs: controllerConfig.transitionDurationMs,
     defaultSceneKelvin: controllerConfig.defaultSceneKelvin,
     controllerConfigPath: getControllerConfigFilePath(),

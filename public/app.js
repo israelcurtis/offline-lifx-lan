@@ -187,7 +187,7 @@ function setSceneFeedback(sceneId, label) {
 	}, SCENE_FEEDBACK_DURATION_MS);
 }
 
-function applyLocalTargetState(enabledTargetIds, disabledTargetIds) {
+function applyLocalTargetState(knownDevices) {
 	if (!currentStatus) {
 		return;
 	}
@@ -195,10 +195,9 @@ function applyLocalTargetState(enabledTargetIds, disabledTargetIds) {
 	// Targeting is local persisted controller state, not a confirmed bulb-state round trip.
 	// Update the current status snapshot optimistically so the ENABLED/DISABLED pills feel instant,
 	// then let the normal status response reconcile the rest of the payload.
-	const enabledIdSet = new Set(enabledTargetIds);
-	const disabledIdSet = new Set(disabledTargetIds);
+	const knownDeviceMap = new Map((knownDevices ?? []).map((device) => [device.id, device]));
 	const nextLights = (currentStatus.lights ?? []).map((light) => {
-		const enabled = enabledIdSet.has(light.id) || !disabledIdSet.has(light.id);
+		const enabled = knownDeviceMap.get(light.id)?.enabled ?? light.enabled ?? true;
 		return {
 			...light,
 			enabled,
@@ -219,9 +218,8 @@ function applyLocalTargetState(enabledTargetIds, disabledTargetIds) {
 
 	currentStatus = {
 		...currentStatus,
-		enabledTargetIds: [...enabledTargetIds],
-		disabledTargetIds: [...disabledTargetIds],
-		targetedCount: enabledIdSet.size,
+		knownDevices,
+		targetedCount: nextLights.filter((light) => light.enabled).length,
 		addressGroups,
 		lights: nextLights
 	};
@@ -559,12 +557,12 @@ function getSceneButtonAppearance(scene) {
 	);
 }
 
-function getStateSwatchColor(currentState) {
+function getStateSwatchColor(currentState, light) {
 	if (!currentState || currentState.power !== "on" || currentState.brightness <= 0) {
 		return "transparent";
 	}
 
-	if (currentState.saturation <= 8) {
+	if (light?.capabilities?.color === false || currentState.saturation <= 8) {
 		return getPerceptualKelvinColor(currentState.kelvin, currentState.brightness).cssColor;
 	}
 
@@ -575,7 +573,7 @@ function getStateSwatchColor(currentState) {
 	).cssColor;
 }
 
-function getStateLabel(currentState) {
+function getStateLabel(currentState, light) {
 	if (!currentState) {
 		return "awaiting response";
 	}
@@ -584,7 +582,7 @@ function getStateLabel(currentState) {
 		return "Off";
 	}
 
-	if (currentState.saturation <= 8) {
+	if (light?.capabilities?.color === false || currentState.saturation <= 8) {
 		return `${Math.round(currentState.brightness)}% · ${Math.round(currentState.kelvin)}K`;
 	}
 
@@ -621,12 +619,37 @@ function createLightCard() {
 	onlineIcon.alt = "";
 	onlineIcon.setAttribute("aria-hidden", "true");
 	onlinePill.append(onlineIcon);
+	const capabilityMeta = document.createElement("span");
+	capabilityMeta.className = "pill light-capability-meta";
+	const capabilityIcon = document.createElement("img");
+	capabilityIcon.className = "light-capability-icon";
+	capabilityIcon.src = "/assets/iconoir/regular/light-bulb.svg";
+	capabilityIcon.alt = "";
+	capabilityIcon.setAttribute("aria-hidden", "true");
+	const capabilityLabel = document.createElement("span");
+	capabilityLabel.className = "light-capability-label";
+	capabilityMeta.append(capabilityIcon, capabilityLabel);
 	const targetingPill = document.createElement("button");
 	targetingPill.type = "button";
 	targetingPill.className = "pill pill-toggle";
+	targetingPill.addEventListener("pointerenter", () => {
+		targetingPill.classList.add("is-hovered");
+	});
+	targetingPill.addEventListener("pointerleave", () => {
+		targetingPill.classList.remove("is-hovered");
+	});
+	targetingPill.addEventListener("blur", () => {
+		targetingPill.classList.remove("is-hovered");
+	});
+	const targetingIcon = document.createElement("img");
+	targetingIcon.className = "pill-icon pill-toggle-icon";
+	targetingIcon.alt = "";
+	targetingIcon.setAttribute("aria-hidden", "true");
+	targetingPill.append(targetingIcon);
 
 	pillRow.append(targetingPill);
 	pillRow.append(onlinePill);
+	pillRow.append(capabilityMeta);
 
 	card.append(header, stateLabel, address, identifier, pillRow);
 
@@ -637,12 +660,16 @@ function updateLightCard(card, light) {
 	const enabled = isLightEnabled(light);
 	const swatch = card.querySelector(".light-swatch");
 	const title = card.querySelector("h3");
+	const capabilityMeta = card.querySelector(".light-capability-meta");
+	const capabilityIcon = card.querySelector(".light-capability-icon");
+	const capabilityLabel = card.querySelector(".light-capability-label");
 	const address = card.querySelectorAll(".light-identifier-meta")[0];
 	const identifier = card.querySelectorAll(".light-identifier-meta")[1];
 	const stateLabel = card.querySelector(".light-state-meta");
 	const onlinePill = card.querySelector(".pill:not(.pill-toggle)");
-	const onlineIcon = card.querySelector(".pill-icon");
+	const onlineIcon = onlinePill.querySelector(".pill-icon");
 	const targetingPill = card.querySelector(".pill-toggle");
+	const targetingIcon = card.querySelector(".pill-toggle-icon");
 
 	card.dataset.enabled = String(enabled);
 	card.dataset.lightId = light.id;
@@ -652,25 +679,67 @@ function updateLightCard(card, light) {
 		swatch.setAttribute("aria-label", "Bulb is off");
 	} else {
 		swatch.dataset.power = "on";
-		swatch.style.background = getStateSwatchColor(light.currentState);
+		swatch.style.background = getStateSwatchColor(light.currentState, light);
 		swatch.setAttribute("aria-label", "Bulb is on");
 	}
 	title.textContent = light.label;
+	if (light.capabilities?.color === true) {
+		capabilityMeta.hidden = false;
+		capabilityMeta.dataset.capability = "rgb";
+		capabilityLabel.replaceChildren();
+		for (const [letter, className] of [["R", "rgb-r"], ["G", "rgb-g"], ["B", "rgb-b"]]) {
+			const letterSpan = document.createElement("span");
+			letterSpan.className = `light-capability-letter ${className}`;
+			letterSpan.textContent = letter;
+			capabilityLabel.append(letterSpan);
+		}
+		capabilityMeta.title = "RGB-capable bulb";
+		capabilityMeta.setAttribute("aria-label", "RGB-capable bulb");
+	} else if (light.capabilities?.color === false) {
+		capabilityMeta.hidden = false;
+		capabilityMeta.dataset.capability = "white";
+		capabilityLabel.replaceChildren();
+		capabilityLabel.textContent = "WHT";
+		capabilityMeta.title = "White-only bulb";
+		capabilityMeta.setAttribute("aria-label", "White-only bulb");
+	} else {
+		capabilityMeta.hidden = true;
+		capabilityMeta.dataset.capability = "";
+		capabilityLabel.replaceChildren();
+		capabilityMeta.removeAttribute("title");
+		capabilityMeta.removeAttribute("aria-label");
+	}
 	address.textContent = light.address;
 	identifier.textContent = `ID: ${light.id}`;
-	stateLabel.textContent = getStateLabel(light.currentState);
+	stateLabel.textContent = getStateLabel(light.currentState, light);
 	stateLabel.dataset.pending = String(!light.currentState);
 
-	onlinePill.className = `pill ${light.status === "on" ? "online" : "offline"}`;
+	onlinePill.classList.add("pill");
+	onlinePill.classList.toggle("online", light.status === "on");
+	onlinePill.classList.toggle("offline", light.status !== "on");
 	onlinePill.setAttribute("aria-label", light.status === "on" ? "Online" : "Offline");
 	onlinePill.title = light.status === "on" ? "Online" : "Offline";
-	onlineIcon.src = light.status === "on"
+	const onlineIconSrc = light.status === "on"
 		? "/assets/iconoir/regular/wifi.svg"
 		: "/assets/iconoir/solid/warning-triangle.svg";
+	if (onlineIcon.getAttribute("src") !== onlineIconSrc) {
+		onlineIcon.src = onlineIconSrc;
+	}
 
-	targetingPill.className = `pill pill-toggle ${enabled ? "enabled" : "disabled"}`;
-	targetingPill.textContent = enabled ? "ENABLED" : "DISABLED";
+	targetingPill.classList.add("pill", "pill-toggle");
+	targetingPill.classList.toggle("enabled", enabled);
+	targetingPill.classList.toggle("disabled", !enabled);
+	targetingIcon.hidden = false;
+	const targetingIconSrc = enabled
+		? "/assets/iconoir/solid/plus-circle.svg"
+		: "/assets/iconoir/regular/xmark-circle.svg";
+	if (targetingIcon.getAttribute("src") !== targetingIconSrc) {
+		targetingIcon.src = targetingIconSrc;
+	}
 	targetingPill.disabled = isSavingTargetState || !currentStatus?.manualTargetingEnabled;
+	if (targetingPill.disabled) {
+		targetingPill.classList.remove("is-hovered");
+	}
 	targetingPill.setAttribute(
 		"aria-label",
 		enabled ? `Disable ${light.label}` : `Enable ${light.label}`
@@ -1476,13 +1545,13 @@ async function applyScene(sceneId) {
 	}
 }
 
-async function saveTargets(enabledTargetIds, disabledTargetIds) {
+async function saveTargets(knownDevices) {
 	const response = await fetch("/api/targets", {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json"
 		},
-		body: JSON.stringify({ enabledTargetIds, disabledTargetIds })
+		body: JSON.stringify({ devices: knownDevices })
 	});
 	const payload = await response.json();
 	if (!response.ok) {
@@ -1603,21 +1672,21 @@ async function toggleTarget(lightId) {
 		return;
 	}
 
-	const enabledTargetIds = new Set(currentStatus.enabledTargetIds ?? []);
-	const disabledTargetIds = new Set(currentStatus.disabledTargetIds ?? []);
+	const nextKnownDevices = (currentStatus.knownDevices ?? []).map((device) => {
+		if (device.id !== lightId) {
+			return device;
+		}
 
-	if (light.enabled) {
-		enabledTargetIds.delete(lightId);
-		disabledTargetIds.add(lightId);
-	} else {
-		enabledTargetIds.add(lightId);
-		disabledTargetIds.delete(lightId);
-	}
+		return {
+			...device,
+			enabled: !light.enabled
+		};
+	});
 
 	try {
 		setTargetSaveState(true);
-		applyLocalTargetState([...enabledTargetIds], [...disabledTargetIds]);
-		await saveTargets([...enabledTargetIds], [...disabledTargetIds]);
+		applyLocalTargetState(nextKnownDevices);
+		await saveTargets(nextKnownDevices);
 	} catch (error) {
 		statusText.textContent = error.message;
 		if (currentStatus) {
@@ -1635,23 +1704,18 @@ async function toggleAddressGroup(addressGroup, enabled) {
 		return;
 	}
 
-	const enabledTargetIds = new Set(currentStatus.enabledTargetIds ?? []);
-	const disabledTargetIds = new Set(currentStatus.disabledTargetIds ?? []);
-	const groupLights = (currentStatus.lights ?? []).filter((light) => light.addressGroup === addressGroup);
-
-	for (const light of groupLights) {
-		if (enabled) {
-			enabledTargetIds.add(light.id);
-			disabledTargetIds.delete(light.id);
-		} else {
-			enabledTargetIds.delete(light.id);
-			disabledTargetIds.add(light.id);
-		}
-	}
+	const groupLightIds = new Set((currentStatus.lights ?? [])
+		.filter((light) => light.addressGroup === addressGroup)
+		.map((light) => light.id));
+	const nextKnownDevices = (currentStatus.knownDevices ?? []).map((device) => (
+		groupLightIds.has(device.id)
+			? { ...device, enabled }
+			: device
+	));
 
 	try {
 		setTargetSaveState(true);
-		applyLocalTargetState([...enabledTargetIds], [...disabledTargetIds]);
+		applyLocalTargetState(nextKnownDevices);
 		await saveAddressGroupState(addressGroup, enabled);
 	} catch (error) {
 		statusText.textContent = error.message;

@@ -75,6 +75,19 @@ function requestLightState(light) {
   });
 }
 
+function requestLightHardwareVersion(light) {
+  return new Promise((resolve, reject) => {
+    light.getHardwareVersion((error, data) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve(data);
+    });
+  });
+}
+
 function normalizeLightState(state) {
   if (!state || typeof state !== "object") {
     return null;
@@ -213,6 +226,7 @@ export class LifxController extends EventEmitter {
     this.startPromise = null;
     this.startStateRefreshLoop();
     this.queueStateRefresh(true);
+    void this.refreshDiscoveredMetadata({ waitMs: this.config.discoveryWaitMs });
   }
 
   stop() {
@@ -240,6 +254,7 @@ export class LifxController extends EventEmitter {
 
   serializeLight(light) {
     const context = this.clientContextByClient.get(light.client);
+    const knownDevice = this.getKnownDeviceRecord(light.id);
     return {
       id: light.id,
       label: light.label ?? "Unnamed bulb",
@@ -250,8 +265,13 @@ export class LifxController extends EventEmitter {
       interfaceName: context?.network.name ?? "unknown",
       controllerAddress: context?.network.address ?? null,
       subnetCidr: context?.network.cidr ?? null,
+      capabilities: knownDevice.capabilities,
       currentState: this.lightStateCache.get(light.id) ?? null
     };
+  }
+
+  getKnownDevices() {
+    return this.config.knownDevices ?? [];
   }
 
   startStateRefreshLoop() {
@@ -336,34 +356,108 @@ export class LifxController extends EventEmitter {
 
   persistKnownDevicesState(overrides = {}) {
     const savedState = saveKnownDevicesState({
-      enabledIds: this.config.enabledTargetIds,
-      disabledIds: this.config.disabledTargetIds,
+      devices: this.getKnownDevices(),
       ...overrides
     });
 
-    this.config.enabledTargetIds = savedState.enabledIds;
-    this.config.disabledTargetIds = savedState.disabledIds;
+    this.config.knownDevices = savedState.devices;
     return savedState;
   }
 
-  setDeviceStates({ enabledTargetIds = [], disabledTargetIds = [] }) {
+  // Use one lookup path for local persisted device properties so targeting and capabilities
+  // stay conceptually tied to the same device record even though some API payloads still
+  // expose derived enabled/capability collections.
+  getKnownDeviceRecord(lightId) {
+    const record = this.getKnownDevices().find((device) => device.id === lightId);
+    return {
+      id: lightId,
+      enabled: record?.enabled ?? true,
+      capabilities: record?.color == null ? null : { color: record.color }
+    };
+  }
+
+  getEnabledTargetIds() {
+    return this.getKnownDevices().filter((device) => device.enabled).map((device) => device.id);
+  }
+
+  getDisabledTargetIds() {
+    return this.getKnownDevices().filter((device) => !device.enabled).map((device) => device.id);
+  }
+
+  async refreshKnownLightCapabilities() {
+    // Hardware features do not change for a given device id, so fetch them only as part of
+    // discovery-time metadata refreshes, not on the normal 3s state polling loop.
+    const knownDevicesById = new Map(this.getKnownDevices().map((device) => [device.id, { ...device }]));
+    const lightsNeedingCapabilities = this.getKnownLights().filter((light) => knownDevicesById.get(light.id)?.color == null);
+    if (lightsNeedingCapabilities.length === 0) {
+      return;
+    }
+
+    const results = await Promise.allSettled(
+      lightsNeedingCapabilities.map(async (light) => {
+        const hardwareInfo = await requestLightHardwareVersion(light);
+        return {
+          id: light.id,
+          capabilities: {
+            color: Boolean(hardwareInfo?.productFeatures?.color)
+          }
+        };
+      })
+    );
+
+    let changed = false;
+    for (const result of results) {
+      if (result.status !== "fulfilled") {
+        continue;
+      }
+
+      const existingRecord = knownDevicesById.get(result.value.id) ?? { id: result.value.id, enabled: true };
+      knownDevicesById.set(result.value.id, {
+        ...existingRecord,
+        color: result.value.capabilities.color
+      });
+      changed = true;
+    }
+
+    if (changed) {
+      this.persistKnownDevicesState({ devices: [...knownDevicesById.values()] });
+    }
+  }
+
+  async refreshDiscoveredMetadata({ waitMs = 0 } = {}) {
+    try {
+      if (waitMs > 0) {
+        await delay(waitMs);
+      }
+
+      this.syncKnownLightStates();
+      await this.refreshKnownLightCapabilities();
+    } catch (error) {
+      console.warn("Failed to refresh LIFX discovery metadata", error);
+    }
+  }
+
+  setDeviceStates({ devices = [] }) {
     if (this.hasFixedTargetSelector()) {
       throw new Error("Manual target selection is disabled while env-based target filters are configured.");
     }
 
-    const enabledIdSet = new Set(enabledTargetIds);
-    const savedState = this.persistKnownDevicesState({
-      enabledIds: enabledTargetIds,
-      disabledIds: disabledTargetIds.filter((id) => !enabledIdSet.has(id))
-    });
+    const knownDevicesById = new Map(this.getKnownDevices().map((device) => [device.id, { ...device }]));
+    for (const device of devices) {
+      const existingRecord = knownDevicesById.get(device.id) ?? { id: device.id };
+      knownDevicesById.set(device.id, {
+        ...existingRecord,
+        enabled: Boolean(device.enabled)
+      });
+    }
+
+    const savedState = this.persistKnownDevicesState({ devices: [...knownDevicesById.values()] });
     this.emit("update", {
       type: "device-states-updated",
-      enabledTargetIds: this.config.enabledTargetIds,
-      disabledTargetIds: this.config.disabledTargetIds
+      knownDevices: savedState.devices
     });
     return {
-      enabledTargetIds: savedState.enabledIds,
-      disabledTargetIds: savedState.disabledIds
+      knownDevices: savedState.devices
     };
   }
 
@@ -373,31 +467,24 @@ export class LifxController extends EventEmitter {
     }
 
     const groupLights = this.getKnownLights().filter((light) => getAddressGroup(light.address) === addressGroup);
-    const enabledIdSet = new Set(this.config.enabledTargetIds);
-    const disabledIdSet = new Set(this.config.disabledTargetIds);
+    const knownDevicesById = new Map(this.getKnownDevices().map((device) => [device.id, { ...device }]));
 
     for (const light of groupLights) {
-      if (enabled) {
-        enabledIdSet.add(light.id);
-        disabledIdSet.delete(light.id);
-      } else {
-        enabledIdSet.delete(light.id);
-        disabledIdSet.add(light.id);
-      }
+      const existingRecord = knownDevicesById.get(light.id) ?? { id: light.id };
+      knownDevicesById.set(light.id, {
+        ...existingRecord,
+        enabled
+      });
     }
 
-    const savedState = this.persistKnownDevicesState({
-      enabledIds: [...enabledIdSet],
-      disabledIds: [...disabledIdSet]
-    });
+    const savedState = this.persistKnownDevicesState({ devices: [...knownDevicesById.values()] });
     this.emit("update", {
       type: "address-groups-updated",
       addressGroup,
       enabled
     });
     return {
-      enabledTargetIds: savedState.enabledIds,
-      disabledTargetIds: savedState.disabledIds
+      knownDevices: savedState.devices
     };
   }
 
@@ -430,6 +517,7 @@ export class LifxController extends EventEmitter {
       context.client.startDiscovery();
     }
     await delay(this.config.discoveryWaitMs);
+    await this.refreshDiscoveredMetadata();
   }
 
   getKnownLights() {
@@ -454,22 +542,18 @@ export class LifxController extends EventEmitter {
       return;
     }
 
-    const enabledIdSet = new Set(this.config.enabledTargetIds);
-    const disabledIdSet = new Set(this.config.disabledTargetIds);
     let changed = false;
+    const knownDevicesById = new Map(this.getKnownDevices().map((device) => [device.id, { ...device }]));
 
     for (const light of knownLights) {
-      if (!enabledIdSet.has(light.id) && !disabledIdSet.has(light.id)) {
-        enabledIdSet.add(light.id);
+      if (!knownDevicesById.has(light.id)) {
+        knownDevicesById.set(light.id, { id: light.id, enabled: true });
         changed = true;
       }
     }
 
     if (changed) {
-      this.persistKnownDevicesState({
-        enabledIds: [...enabledIdSet],
-        disabledIds: [...disabledIdSet]
-      });
+      this.persistKnownDevicesState({ devices: [...knownDevicesById.values()] });
     }
   }
 
@@ -485,18 +569,8 @@ export class LifxController extends EventEmitter {
         })
       : discovered;
 
-    const enabledIdSet = new Set(this.config.enabledTargetIds);
-    const disabledIdSet = new Set(this.config.disabledTargetIds);
     const resolvedLights = selectedLights.filter((light) => {
-      if (enabledIdSet.has(light.id)) {
-        return true;
-      }
-
-      if (disabledIdSet.has(light.id)) {
-        return false;
-      }
-
-      return true;
+      return this.getKnownDeviceRecord(light.id).enabled;
     });
 
     return sortLights(
@@ -596,8 +670,9 @@ export class LifxController extends EventEmitter {
       targetLabels: this.config.targetLabels,
       targetIds: this.config.targetIds,
       targetAddresses: this.config.targetAddresses,
-      enabledTargetIds: this.config.enabledTargetIds,
-      disabledTargetIds: this.config.disabledTargetIds,
+      // The web UI works directly from the persisted local device records so targeting state
+      // and discovered capability metadata stay unified from disk through API response.
+      knownDevices: this.getKnownDevices(),
       transitionDurationMs: this.config.transitionDurationMs,
       defaultSceneKelvin: this.config.defaultSceneKelvin,
       liveBrightnessPercent: this.getLiveBrightnessPercent(),

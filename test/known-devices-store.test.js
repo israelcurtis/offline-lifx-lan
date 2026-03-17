@@ -34,21 +34,77 @@ test("loadKnownDevicesState returns empty state when the file does not exist", (
   process.env.KNOWN_DEVICES_PATH = makeTempKnownDevicesPath();
 
   assert.deepEqual(loadKnownDevicesState(), {
+    devices: [],
     enabledIds: [],
-    disabledIds: []
+    disabledIds: [],
+    capabilitiesById: {}
   });
 });
 
 test("saveKnownDevicesState normalizes ids and loadKnownDevicesState reads them back", () => {
   process.env.KNOWN_DEVICES_PATH = makeTempKnownDevicesPath();
+  const knownDevicesPath = process.env.KNOWN_DEVICES_PATH;
 
   saveKnownDevicesState({
     enabledIds: ["a", "a", "b", ""],
-    disabledIds: ["b", "c", "c", ""]
+    disabledIds: ["b", "c", "c", ""],
+    capabilitiesById: {
+      a: { color: true },
+      c: { color: false },
+      "": { color: true }
+    }
   });
 
   assert.deepEqual(loadKnownDevicesState(), {
+    devices: [
+      { id: "a", enabled: true, color: true },
+      { id: "b", enabled: true },
+      { id: "c", enabled: false, color: false }
+    ],
     enabledIds: ["a", "b"],
-    disabledIds: ["c"]
+    disabledIds: ["c"],
+    capabilitiesById: {
+      a: { color: true },
+      c: { color: false }
+    }
+  });
+
+  const savedFile = JSON.parse(fs.readFileSync(knownDevicesPath, "utf8"));
+  assert.deepEqual(savedFile, {
+    devices: [
+      { id: "a", enabled: true, color: true },
+      { id: "b", enabled: true },
+      { id: "c", enabled: false, color: false }
+    ]
+  });
+});
+
+test("loadKnownDevicesState reads the consolidated devices array format", () => {
+  process.env.KNOWN_DEVICES_PATH = makeTempKnownDevicesPath();
+
+  fs.writeFileSync(
+    process.env.KNOWN_DEVICES_PATH,
+    `${JSON.stringify({
+      devices: [
+        { id: "a", enabled: true, color: true },
+        { id: "b", enabled: false, color: false },
+        { id: "c", enabled: true }
+      ]
+    }, null, 2)}\n`,
+    "utf8"
+  );
+
+  assert.deepEqual(loadKnownDevicesState(), {
+    devices: [
+      { id: "a", enabled: true, color: true },
+      { id: "b", enabled: false, color: false },
+      { id: "c", enabled: true }
+    ],
+    enabledIds: ["a", "c"],
+    disabledIds: ["b"],
+    capabilitiesById: {
+      a: { color: true },
+      b: { color: false }
+    }
   });
 });

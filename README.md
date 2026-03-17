@@ -93,10 +93,12 @@ Current keys:
 
 Per-machine device targeting state lives in `config/known-devices.json`, which is intentionally gitignored.
 
-Current keys:
+Current shape:
 
-- `enabledIds`
-- `disabledIds`
+- `devices`
+  - `id`
+  - `enabled`
+  - `color` when hardware capability has been discovered
 
 If `config/known-devices.json` does not exist yet, the app starts with empty local targeting state and creates the file after discovery/status sync adds known bulbs.
 
@@ -134,6 +136,7 @@ The browser interface currently includes:
 - `Rescan LAN` beside the `Devices` section header
 - subnet-grouped device lists
 - per-device `ENABLED` / `DISABLED` targeting pills
+- per-device RGB / White capability indicator based on discovery-time hardware metadata
 - subnet-level `Enable All` / `Disable All` buttons
 - live device swatches and state readout
 
@@ -231,14 +234,16 @@ Forces a fresh LAN discovery pass and returns the updated status payload.
 
 ### `POST /api/targets`
 
-Sets explicit per-device enabled and disabled state.
+Replaces the locally persisted per-device targeting records used by the web UI.
 
 Request body:
 
 ```json
 {
-  "enabledTargetIds": ["d073d5837b0b"],
-  "disabledTargetIds": ["d073d582392d"]
+  "devices": [
+    { "id": "d073d5837b0b", "enabled": true },
+    { "id": "d073d582392d", "enabled": false }
+  ]
 }
 ```
 

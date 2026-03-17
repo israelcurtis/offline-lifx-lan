@@ -118,9 +118,8 @@ app.post("/api/discover", async (_req, res, next) => {
 
 app.post("/api/targets", async (req, res, next) => {
   try {
-    const enabledTargetIds = Array.isArray(req.body?.enabledTargetIds) ? req.body.enabledTargetIds : [];
-    const disabledTargetIds = Array.isArray(req.body?.disabledTargetIds) ? req.body.disabledTargetIds : [];
-    controller.setDeviceStates({ enabledTargetIds, disabledTargetIds });
+    const devices = Array.isArray(req.body?.devices) ? req.body.devices : [];
+    controller.setDeviceStates({ devices });
     res.json(controller.getStatusPayload(scenes));
   } catch (error) {
     next(error);

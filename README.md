@@ -164,7 +164,7 @@ If the scene ID does not exist, the route returns `404` with `{ ok: false, error
 
 ### `PUT /api/scenes/:sceneId`
 
-Updates an existing scene, persists the edited scene list back to the configured `scenes.json` file, and then immediately tries to apply the updated preset.
+Updates an existing scene and persists the edited scene list back to the configured `scenes.json` file.
 
 Request body:
 
@@ -179,6 +179,22 @@ Request body:
 ```
 
 The saved scene ID is derived from `name`.
+
+### `POST /api/scene-preview`
+
+Sends a fast live preview command for the scene editor without saving `scenes.json` or changing the controller's persisted last-applied scene metadata.
+
+Request body:
+
+```json
+{
+  "power": "on",
+  "hue": 35,
+  "saturation": 0.22,
+  "brightness": 0.6,
+  "kelvin": 5500
+}
+```
 
 ### `POST /api/discover`
 
@@ -222,8 +238,7 @@ Request body:
 
 ```json
 {
-  "transitionDurationMs": 1000,
-  "defaultSceneKelvin": 5500
+  "transitionDurationMs": 1000
 }
 ```
 

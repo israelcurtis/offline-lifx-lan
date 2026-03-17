@@ -218,6 +218,21 @@ Reason:
 
 - continuous status polling/swatches during drag caused visible UI churn and made the slider feel jerkier, especially on iPad
 
+### Scene editor live preview
+
+Implemented in:
+
+- backend: `src/lifx-controller.js`
+- API: `POST /api/scene-preview`
+- UI: `public/app.js`
+
+Current design:
+
+- uses the same 100ms live-control cadence as manual brightness
+- updates targeted online bulbs in real time while editing scene controls
+- does not overwrite persisted `lastAction`
+- saving the scene only persists the draft because the bulbs are already at the previewed state
+
 ### Manual brightness and off bulbs
 
 Important edge case:
@@ -248,7 +263,7 @@ Each entry holds:
 
 Normal background poll interval:
 
-- `2000ms`
+- `3000ms`
 
 Important nuance:
 
@@ -333,6 +348,7 @@ Current API routes live in `src/server.js`:
 
 - `GET /api/status`
 - `POST /api/scenes/:sceneId`
+- `POST /api/scene-preview`
 - `POST /api/discover`
 - `POST /api/targets`
 - `POST /api/address-groups`

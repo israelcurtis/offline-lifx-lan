@@ -14,23 +14,25 @@ const transitionDurationValue = document.querySelector("#transition-duration-val
 const brightnessSlider = document.querySelector("#brightness-slider");
 const brightnessValue = document.querySelector("#brightness-value");
 
-let activeSceneId = null;
 let isSubmitting = false;
 let currentStatus = null;
 let activeActivity = "";
 let activityClearTimer = null;
-let recentlyUpdatedSceneId = null;
+let sceneFeedbackId = null;
+let sceneFeedbackLabel = null;
+let sceneFeedbackTimer = null;
 let isAdjustingTransitionDuration = false;
 let isAdjustingLiveBrightness = false;
-let liveBrightnessRequestInFlight = false;
-let pendingLiveBrightnessPercent = null;
-let liveBrightnessDispatchTimer = null;
-let liveBrightnessRefreshTimer = null;
 let editingSceneId = null;
 let editingSceneDraft = null;
+let hasLiveScenePreview = false;
 
 const LIVE_BRIGHTNESS_DISPATCH_INTERVAL_MS = 100;
 const LIVE_BRIGHTNESS_REFRESH_DELAY_MS = 300;
+const LIVE_SCENE_PREVIEW_DISPATCH_INTERVAL_MS = 100;
+const LIVE_SCENE_PREVIEW_REFRESH_DELAY_MS = 400;
+const STATUS_POLL_INTERVAL_MS = 3000;
+const SCENE_FEEDBACK_DURATION_MS = 4000;
 const MIN_SCENE_BRIGHTNESS_PERCENT = 5;
 const FALLBACK_DEFAULT_SCENE_KELVIN = 5500;
 const supportsOklch = typeof CSS !== "undefined"
@@ -159,6 +161,142 @@ function setActivity(message = "", { autoClearMs = 0 } = {}) {
 			}
 		}, autoClearMs);
 	}
+}
+
+function setSceneFeedback(sceneId, label) {
+	sceneFeedbackId = sceneId;
+	sceneFeedbackLabel = label;
+	renderScenes(currentStatus?.scenes ?? []);
+
+	if (sceneFeedbackTimer) {
+		clearTimeout(sceneFeedbackTimer);
+	}
+
+	sceneFeedbackTimer = setTimeout(() => {
+		sceneFeedbackTimer = null;
+		sceneFeedbackId = null;
+		sceneFeedbackLabel = null;
+		renderScenes(currentStatus?.scenes ?? []);
+	}, SCENE_FEEDBACK_DURATION_MS);
+}
+
+function createLiveCommandQueue({
+	dispatchIntervalMs,
+	refreshDelayMs = 0,
+	save,
+	onSuccess,
+	onError,
+	refresh
+}) {
+	let requestInFlight = false;
+	let pendingPayload = null;
+	let dispatchTimer = null;
+	let refreshTimer = null;
+	const idleResolvers = [];
+
+	function resolveIdleWaiters() {
+		if (requestInFlight || pendingPayload != null || dispatchTimer) {
+			return;
+		}
+
+		for (const resolve of idleResolvers.splice(0)) {
+			resolve();
+		}
+	}
+
+	function scheduleRefresh() {
+		if (!refresh || refreshDelayMs <= 0) {
+			return;
+		}
+
+		if (refreshTimer) {
+			clearTimeout(refreshTimer);
+		}
+
+		refreshTimer = setTimeout(() => {
+			refreshTimer = null;
+			refresh();
+		}, refreshDelayMs);
+	}
+
+	async function flush() {
+		if (requestInFlight || pendingPayload == null) {
+			resolveIdleWaiters();
+			return;
+		}
+
+		const nextPayload = pendingPayload;
+		pendingPayload = null;
+		requestInFlight = true;
+
+		try {
+			const result = await save(nextPayload);
+			onSuccess?.(result, nextPayload);
+		} catch (error) {
+			onError?.(error, nextPayload);
+		} finally {
+			requestInFlight = false;
+			if (pendingPayload != null) {
+				void flush();
+			} else {
+				scheduleRefresh();
+				resolveIdleWaiters();
+			}
+		}
+	}
+
+	return {
+		queue(payload) {
+			pendingPayload = payload;
+			if (dispatchTimer) {
+				return;
+			}
+
+			dispatchTimer = setTimeout(() => {
+				dispatchTimer = null;
+				void flush();
+			}, dispatchIntervalMs);
+		},
+		async flushNow() {
+			if (dispatchTimer) {
+				clearTimeout(dispatchTimer);
+				dispatchTimer = null;
+			}
+
+			if (pendingPayload != null) {
+				await flush();
+			}
+
+			if (requestInFlight || pendingPayload != null || dispatchTimer) {
+				await this.waitForIdle();
+			}
+		},
+		waitForIdle() {
+			if (!requestInFlight && pendingPayload == null && !dispatchTimer) {
+				return Promise.resolve();
+			}
+
+			return new Promise((resolve) => {
+				idleResolvers.push(resolve);
+			});
+		},
+		clearPending() {
+			if (dispatchTimer) {
+				clearTimeout(dispatchTimer);
+				dispatchTimer = null;
+			}
+			if (refreshTimer) {
+				clearTimeout(refreshTimer);
+				refreshTimer = null;
+			}
+			pendingPayload = null;
+			resolveIdleWaiters();
+		},
+		scheduleRefresh,
+		isRequestInFlight() {
+			return requestInFlight;
+		}
+	};
 }
 
 function hsbToRgb(hue, saturation, brightness) {
@@ -563,6 +701,28 @@ function makeSceneDraft(scene) {
 	};
 }
 
+function buildEditingSceneValues() {
+	if (!editingSceneDraft) {
+		return null;
+	}
+
+	return {
+		power: editingSceneDraft.colorMode === "off" ? "off" : "on",
+		hue: editingSceneDraft.hue,
+		saturation: editingSceneDraft.colorMode === "white" ? 0 : editingSceneDraft.saturation / 100,
+		brightness: editingSceneDraft.colorMode === "off"
+			? 0
+			: getEditableSceneBrightnessPercent(editingSceneDraft.brightness, editingSceneDraft.colorMode) / 100,
+		kelvin: editingSceneDraft.colorMode === "white"
+			? editingSceneDraft.kelvin
+			: getDefaultSceneKelvin()
+	};
+}
+
+function hasLiveScenePreviewTargets() {
+	return (currentStatus?.lights?.some((light) => light.targeted && light.status === "on")) ?? false;
+}
+
 function getSceneButtonBorder(scene, rgb) {
 	if (scene.power === "off") {
 		return "rgba(255, 255, 255, 0.12)";
@@ -590,6 +750,8 @@ function getSceneButtonForeground(rgb) {
 function setSceneEditor(scene) {
 	editingSceneId = scene.id;
 	editingSceneDraft = makeSceneDraft(scene);
+	hasLiveScenePreview = false;
+	scenePreviewQueue.clearPending();
 	renderScenes(currentStatus?.scenes ?? []);
 	renderSceneEditor(currentStatus?.scenes ?? []);
 }
@@ -597,8 +759,13 @@ function setSceneEditor(scene) {
 function clearSceneEditor() {
 	editingSceneId = null;
 	editingSceneDraft = null;
+	scenePreviewQueue.clearPending();
 	renderScenes(currentStatus?.scenes ?? []);
 	renderSceneEditor(currentStatus?.scenes ?? []);
+	if (hasLiveScenePreview || scenePreviewQueue.isRequestInFlight()) {
+		scenePreviewQueue.scheduleRefresh();
+	}
+	hasLiveScenePreview = false;
 }
 
 function getHueWheelPosition(hue, saturation) {
@@ -647,7 +814,7 @@ function renderSceneEditor(scenes) {
 	editorHeader.className = "scene-editor-header";
 	const editorTitle = document.createElement("h3");
 	editorTitle.className = "scene-editor-title";
-	editorTitle.textContent = `Editing ${scene.name}`;
+	editorTitle.textContent = `Editing Scene: ${scene.name}`;
 	const editorSubtitle = document.createElement("p");
 	editorSubtitle.className = "scene-editor-subtitle";
 	editorSubtitle.textContent = "Update the scene details and color settings, then save to rewrite scenes.json.";
@@ -656,10 +823,15 @@ function renderSceneEditor(scenes) {
 	const fieldGrid = document.createElement("div");
 	fieldGrid.className = "scene-editor-grid";
 
+	const controlPanel = document.createElement("div");
+	controlPanel.className = "scene-editor-control-panel";
+
 	const modeField = document.createElement("div");
 	modeField.className = "scene-editor-field scene-editor-mode-field";
 	const modeLabel = document.createElement("span");
 	modeLabel.textContent = "Light Mode";
+	const modeControls = document.createElement("div");
+	modeControls.className = "scene-editor-mode-controls";
 	const modeToggle = document.createElement("div");
 	modeToggle.className = "scene-mode-toggle";
 	const colorModeButton = document.createElement("button");
@@ -674,8 +846,14 @@ function renderSceneEditor(scenes) {
 	offModeButton.type = "button";
 	offModeButton.className = "scene-mode-button";
 	offModeButton.textContent = "Off";
+	const modePreviewMeta = document.createElement("div");
+	modePreviewMeta.className = "scene-editor-meta scene-editor-mode-meta";
+	const modePreview = document.createElement("div");
+	modePreview.className = "scene-editor-preview scene-editor-mode-preview";
 	modeToggle.append(colorModeButton, whiteModeButton, offModeButton);
-	modeField.append(modeLabel, modeToggle);
+	modePreviewMeta.append(modePreview);
+	modeControls.append(modeToggle, modePreviewMeta);
+	modeField.append(modeLabel, modeControls);
 
 	const nameField = document.createElement("label");
 	nameField.className = "scene-editor-field";
@@ -699,8 +877,12 @@ function renderSceneEditor(scenes) {
 
 	const hueField = document.createElement("div");
 	hueField.className = "scene-editor-field scene-editor-color-field";
+	const hueHeader = document.createElement("div");
+	hueHeader.className = "scene-editor-field-header";
 	const hueLabel = document.createElement("span");
-	hueLabel.textContent = "Color";
+	hueLabel.textContent = "Hue + Sat";
+	const hueValue = document.createElement("div");
+	hueValue.className = "scene-editor-value";
 	const hueWheel = document.createElement("div");
 	hueWheel.className = "scene-hue-wheel";
 	const hueIndicator = document.createElement("div");
@@ -708,17 +890,17 @@ function renderSceneEditor(scenes) {
 	hueWheel.append(hueIndicator);
 	const hueMeta = document.createElement("div");
 	hueMeta.className = "scene-editor-meta";
-	const huePreview = document.createElement("div");
-	huePreview.className = "scene-editor-preview";
-	const hueValue = document.createElement("div");
-	hueValue.className = "scene-editor-value";
-	hueMeta.append(huePreview, hueValue);
-	hueField.append(hueLabel, hueWheel, hueMeta);
+	hueHeader.append(hueLabel, hueValue);
+	hueField.append(hueHeader, hueWheel, hueMeta);
 
 	const kelvinField = document.createElement("label");
 	kelvinField.className = "scene-editor-field scene-editor-color-field";
+	const kelvinHeader = document.createElement("div");
+	kelvinHeader.className = "scene-editor-field-header";
 	const kelvinLabel = document.createElement("span");
 	kelvinLabel.textContent = "White Temperature";
+	const kelvinValue = document.createElement("div");
+	kelvinValue.className = "scene-editor-value";
 	const kelvinSlider = document.createElement("input");
 	kelvinSlider.className = "transition-slider scene-editor-slider scene-kelvin-slider";
 	kelvinSlider.type = "range";
@@ -727,28 +909,36 @@ function renderSceneEditor(scenes) {
 	kelvinSlider.step = "100";
 	const kelvinMeta = document.createElement("div");
 	kelvinMeta.className = "scene-editor-meta";
-	const kelvinPreview = document.createElement("div");
-	kelvinPreview.className = "scene-editor-preview";
-	const kelvinValue = document.createElement("div");
-	kelvinValue.className = "scene-editor-value";
-	kelvinMeta.append(kelvinPreview, kelvinValue);
-	kelvinField.append(kelvinLabel, kelvinSlider, kelvinMeta);
+	kelvinHeader.append(kelvinLabel, kelvinValue);
+	kelvinField.append(kelvinHeader, kelvinSlider, kelvinMeta);
+
+	const offField = document.createElement("div");
+	offField.className = "scene-editor-field scene-editor-off-field";
+	const offIcon = document.createElement("img");
+	offIcon.className = "scene-editor-off-icon";
+	offIcon.src = "/assets/iconoir/regular/prohibition.svg";
+	offIcon.alt = "Off mode";
+	offField.append(offIcon);
 
 	const brightnessField = document.createElement("label");
 	brightnessField.className = "scene-editor-field";
+	const brightnessHeader = document.createElement("div");
+	brightnessHeader.className = "scene-editor-field-header";
 	const brightnessLabel = document.createElement("span");
 	brightnessLabel.textContent = "Brightness";
+	const brightnessValue = document.createElement("div");
+	brightnessValue.className = "scene-editor-value";
 	const brightnessSlider = document.createElement("input");
 	brightnessSlider.className = "transition-slider scene-editor-slider";
 	brightnessSlider.type = "range";
 	brightnessSlider.min = String(MIN_SCENE_BRIGHTNESS_PERCENT);
 	brightnessSlider.max = "100";
 	brightnessSlider.step = "1";
-	const brightnessValue = document.createElement("div");
-	brightnessValue.className = "scene-editor-value";
-	brightnessField.append(brightnessLabel, brightnessSlider, brightnessValue);
+	brightnessHeader.append(brightnessLabel, brightnessValue);
+	brightnessField.append(brightnessHeader, brightnessSlider);
 
-	fieldGrid.append(modeField, hueField, kelvinField, nameField, descriptionField, brightnessField);
+	controlPanel.append(brightnessField, hueField, kelvinField, offField);
+	fieldGrid.append(controlPanel, modeField, nameField, descriptionField);
 
 	const actions = document.createElement("div");
 	actions.className = "scene-editor-actions";
@@ -767,6 +957,16 @@ function renderSceneEditor(scenes) {
 	editor.append(editorHeader, fieldGrid, actions);
 	sceneEditorContainer.append(editor);
 	let isDraggingHueWheel = false;
+	function queueEditorScenePreview() {
+		if (!editingSceneDraft || !hasLiveScenePreviewTargets()) {
+			return;
+		}
+
+		const nextPreview = buildEditingSceneValues();
+		if (nextPreview) {
+			scenePreviewQueue.queue(nextPreview);
+		}
+	}
 
 	function updateEditorDisplay() {
 		if (document.activeElement !== nameInput) {
@@ -783,23 +983,31 @@ function renderSceneEditor(scenes) {
 		offModeButton.dataset.active = String(editingSceneDraft.colorMode === "off");
 		hueField.hidden = editingSceneDraft.colorMode !== "color";
 		kelvinField.hidden = editingSceneDraft.colorMode !== "white";
+		offField.hidden = editingSceneDraft.colorMode !== "off";
 		brightnessField.hidden = editingSceneDraft.colorMode === "off";
 		kelvinSlider.value = String(editingSceneDraft.kelvin);
 		updateSliderProgress(kelvinSlider, kelvinSlider.value);
-		hueValue.textContent = `${Math.round(editingSceneDraft.hue)}° · ${Math.round(editingSceneDraft.saturation)}% sat`;
+		const hueText = `${Math.round(editingSceneDraft.hue)}° · ${Math.round(editingSceneDraft.saturation)}% sat`;
 		const indicatorPosition = getHueWheelPosition(editingSceneDraft.hue, editingSceneDraft.saturation);
 		hueIndicator.style.left = `${indicatorPosition.x}%`;
 		hueIndicator.style.top = `${indicatorPosition.y}%`;
-		huePreview.style.background = getPerceptualHueColor(
+		const huePreviewColor = getPerceptualHueColor(
 			editingSceneDraft.hue,
 			editingSceneDraft.saturation,
 			editingSceneDraft.brightness
 		).cssColor;
-		kelvinValue.textContent = formatKelvinLabel(editingSceneDraft.kelvin);
-		kelvinPreview.style.background = getPerceptualKelvinColor(
+		const kelvinText = formatKelvinLabel(editingSceneDraft.kelvin);
+		const kelvinPreviewColor = getPerceptualKelvinColor(
 			editingSceneDraft.kelvin,
 			editingSceneDraft.brightness
 		).cssColor;
+		hueValue.textContent = hueText;
+		kelvinValue.textContent = kelvinText;
+		modePreview.style.background = editingSceneDraft.colorMode === "off"
+			? "rgb(0, 0, 0)"
+			: editingSceneDraft.colorMode === "white"
+				? kelvinPreviewColor
+				: huePreviewColor;
 	}
 
 	nameInput.addEventListener("input", (event) => {
@@ -824,6 +1032,7 @@ function renderSceneEditor(scenes) {
 			brightness: getEditableSceneBrightnessPercent(editingSceneDraft.brightness, "color")
 		};
 		updateEditorDisplay();
+		queueEditorScenePreview();
 	});
 
 	whiteModeButton.addEventListener("click", () => {
@@ -833,6 +1042,7 @@ function renderSceneEditor(scenes) {
 			brightness: getEditableSceneBrightnessPercent(editingSceneDraft.brightness, "white")
 		};
 		updateEditorDisplay();
+		queueEditorScenePreview();
 	});
 
 	offModeButton.addEventListener("click", () => {
@@ -841,6 +1051,7 @@ function renderSceneEditor(scenes) {
 			colorMode: "off"
 		};
 		updateEditorDisplay();
+		queueEditorScenePreview();
 	});
 
 	brightnessSlider.addEventListener("input", (event) => {
@@ -849,6 +1060,7 @@ function renderSceneEditor(scenes) {
 			brightness: getEditableSceneBrightnessPercent(event.target.value, editingSceneDraft.colorMode)
 		};
 		updateEditorDisplay();
+		queueEditorScenePreview();
 	});
 
 	kelvinSlider.addEventListener("input", (event) => {
@@ -857,6 +1069,7 @@ function renderSceneEditor(scenes) {
 			kelvin: Number(event.target.value)
 		};
 		updateEditorDisplay();
+		queueEditorScenePreview();
 	});
 
 	kelvinSlider.addEventListener("change", (event) => {
@@ -865,6 +1078,7 @@ function renderSceneEditor(scenes) {
 			kelvin: Number(event.target.value)
 		};
 		updateEditorDisplay();
+		queueEditorScenePreview();
 	});
 
 	hueWheel.addEventListener("pointerdown", (event) => {
@@ -872,6 +1086,7 @@ function renderSceneEditor(scenes) {
 		isDraggingHueWheel = true;
 		hueWheel.setPointerCapture(event.pointerId);
 		updateSceneDraftFromWheel(event, hueWheel, updateEditorDisplay);
+		queueEditorScenePreview();
 	});
 
 	hueWheel.addEventListener("pointermove", (event) => {
@@ -880,6 +1095,7 @@ function renderSceneEditor(scenes) {
 		}
 
 		updateSceneDraftFromWheel(event, hueWheel, updateEditorDisplay);
+		queueEditorScenePreview();
 	});
 
 	hueWheel.addEventListener("pointerup", () => {
@@ -897,6 +1113,7 @@ function renderSceneEditor(scenes) {
 	saveButton.addEventListener("click", async () => {
 		try {
 			setBusyState(true);
+			await scenePreviewQueue.flushNow();
 			const response = await fetch(`/api/scenes/${scene.id}`, {
 				method: "PUT",
 				headers: {
@@ -905,13 +1122,7 @@ function renderSceneEditor(scenes) {
 				body: JSON.stringify({
 					name: editingSceneDraft.name,
 					description: editingSceneDraft.description,
-					power: editingSceneDraft.colorMode === "off" ? "off" : "on",
-					hue: editingSceneDraft.hue,
-					saturation: editingSceneDraft.colorMode === "white" ? 0 : editingSceneDraft.saturation / 100,
-					brightness: editingSceneDraft.colorMode === "off" ? 0 : getEditableSceneBrightnessPercent(editingSceneDraft.brightness, editingSceneDraft.colorMode) / 100,
-					kelvin: editingSceneDraft.colorMode === "white"
-						? Number(kelvinSlider.value)
-						: getDefaultSceneKelvin()
+					...buildEditingSceneValues()
 				})
 			});
 			const payload = await response.json();
@@ -919,17 +1130,20 @@ function renderSceneEditor(scenes) {
 				throw new Error(payload.error ?? "Failed to save scene.");
 			}
 
-			if (activeSceneId === payload.previousSceneId) {
-				activeSceneId = payload.scene.id;
+			if ((currentStatus?.lastAction?.sceneId === payload.previousSceneId) || hasLiveScenePreview) {
+				payload.status.lastAction = {
+					...(payload.status.lastAction ?? {}),
+					sceneId: payload.scene.id,
+					sceneName: payload.scene.name,
+					appliedAt: new Date().toISOString()
+				};
 			}
 
-			recentlyUpdatedSceneId = payload.scene.id;
+			setSceneFeedback(payload.scene.id, "Updated");
+			hasLiveScenePreview = false;
 			editingSceneId = null;
 			editingSceneDraft = null;
 			renderStatus(payload.status);
-			if (payload.applyError) {
-				statusText.textContent = `Scene saved, but applying it failed: ${payload.applyError}`;
-			}
 		} catch (error) {
 			statusText.textContent = error.message;
 		} finally {
@@ -987,11 +1201,12 @@ function updateSceneCard(card, scene) {
 	const editButton = card.querySelector(".scene-edit-button");
 	const buttonIcon = card.querySelector(".scene-trigger-icon");
 	const buttonLabel = card.querySelector(".scene-apply-label");
-	const isApplied = activeSceneId === scene.id;
+	const isActive = currentStatus?.lastAction?.sceneId === scene.id;
+	const isShowingFeedback = sceneFeedbackId === scene.id;
 	const isEditing = editingSceneId === scene.id;
 
 	card.dataset.sceneId = scene.id;
-	card.dataset.active = String(isApplied);
+	card.dataset.active = String(isActive);
 	card.dataset.editing = String(isEditing);
 	title.textContent = scene.name;
 	description.textContent = sceneDescription(scene);
@@ -1017,8 +1232,8 @@ function updateSceneCard(card, scene) {
 	button.style.setProperty("--scene-button-ring", buttonRingColor);
 	button.style.setProperty("--scene-button-border", getSceneButtonBorder(scene, buttonRgb));
 	button.style.setProperty("--scene-icon-filter", getSceneIconFilter(buttonRgb));
-	if (isApplied) {
-		buttonLabel.textContent = recentlyUpdatedSceneId === scene.id ? "Updated" : "Applied";
+	if (isShowingFeedback) {
+		buttonLabel.textContent = sceneFeedbackLabel ?? "Applied";
 		buttonLabel.hidden = false;
 		buttonIcon.hidden = true;
 	} else {
@@ -1026,8 +1241,8 @@ function updateSceneCard(card, scene) {
 		buttonIcon.hidden = false;
 	}
 	button.dataset.sceneTriggerId = scene.id;
-	button.dataset.applied = String(isApplied);
-	button.setAttribute("aria-label", isApplied ? `${scene.name} applied` : `Trigger ${scene.name}`);
+	button.dataset.applied = String(isShowingFeedback);
+	button.setAttribute("aria-label", isActive ? `${scene.name} applied` : `Trigger ${scene.name}`);
 	button.style.setProperty("--scene-transition-ms", `${currentStatus?.transitionDurationMs ?? 1000}ms`);
 	button.disabled = isSubmitting;
 }
@@ -1045,7 +1260,6 @@ function renderScenes(scenes) {
 
 function renderStatus(payload) {
 	currentStatus = payload;
-	activeSceneId = payload.lastAction?.sceneId ?? activeSceneId;
 	const statusParts = [];
 	statusParts.push(`${payload.onlineCount} of ${payload.discoveredCount} discovered bulbs online.`);
 	if (payload.lastAction) {
@@ -1062,7 +1276,7 @@ function renderStatus(payload) {
 	if (!isAdjustingTransitionDuration || isSubmitting) {
 		setTransitionDurationDisplay(payload.transitionDurationMs);
 	}
-	if (!isAdjustingLiveBrightness && !liveBrightnessRequestInFlight) {
+	if (!isAdjustingLiveBrightness && !liveBrightnessQueue.isRequestInFlight()) {
 		setBrightnessDisplay(payload.liveBrightnessPercent);
 	}
 	brightnessSlider.disabled = isSubmitting || payload.lights.filter((light) => light.targeted).length === 0;
@@ -1118,8 +1332,7 @@ async function applyScene(sceneId) {
 		if (!response.ok) {
 			throw new Error(payload.error ?? "Failed to apply scene.");
 		}
-		recentlyUpdatedSceneId = null;
-		activeSceneId = sceneId;
+		setSceneFeedback(sceneId, "Applied");
 		renderStatus(payload.status);
 	} catch (error) {
 		statusText.textContent = error.message;
@@ -1191,59 +1404,59 @@ async function saveLiveBrightness(brightnessPercent) {
 	}
 }
 
-function scheduleLiveBrightnessRefresh() {
-	if (liveBrightnessRefreshTimer) {
-		clearTimeout(liveBrightnessRefreshTimer);
+async function saveScenePreview(sceneValues) {
+	const response = await fetch("/api/scene-preview", {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json"
+		},
+		body: JSON.stringify(sceneValues)
+	});
+	const payload = await response.json();
+	if (!response.ok) {
+		throw new Error(payload.error ?? "Failed to preview scene.");
 	}
 
-	liveBrightnessRefreshTimer = setTimeout(() => {
-		liveBrightnessRefreshTimer = null;
-		if (!isSubmitting && !isAdjustingLiveBrightness && !liveBrightnessRequestInFlight) {
-			loadStatus().catch((error) => {
-				statusText.textContent = error.message;
-			});
-		}
-	}, LIVE_BRIGHTNESS_REFRESH_DELAY_MS);
+	return payload.result;
 }
 
-async function flushLiveBrightnessQueue() {
-	if (liveBrightnessRequestInFlight || pendingLiveBrightnessPercent == null) {
-		return;
-	}
-
-	const nextBrightnessPercent = pendingLiveBrightnessPercent;
-	pendingLiveBrightnessPercent = null;
-	liveBrightnessRequestInFlight = true;
-
-	try {
-		await saveLiveBrightness(nextBrightnessPercent);
-	} catch (error) {
+const liveBrightnessQueue = createLiveCommandQueue({
+	dispatchIntervalMs: LIVE_BRIGHTNESS_DISPATCH_INTERVAL_MS,
+	refreshDelayMs: LIVE_BRIGHTNESS_REFRESH_DELAY_MS,
+	save: saveLiveBrightness,
+	onError: (error) => {
 		statusText.textContent = error.message;
 		if (currentStatus) {
 			setBrightnessDisplay(currentStatus.liveBrightnessPercent);
 		}
-	} finally {
-		liveBrightnessRequestInFlight = false;
-		if (pendingLiveBrightnessPercent != null) {
-			void flushLiveBrightnessQueue();
-		} else if (!isAdjustingLiveBrightness && currentStatus) {
-			setBrightnessDisplay(currentStatus.liveBrightnessPercent);
-			scheduleLiveBrightnessRefresh();
+	},
+	refresh: () => {
+		if (!isSubmitting && !isAdjustingLiveBrightness && !liveBrightnessQueue.isRequestInFlight()) {
+			loadStatus().catch((error) => {
+				statusText.textContent = error.message;
+			});
 		}
 	}
-}
+});
 
-function queueLiveBrightnessUpdate(brightnessPercent) {
-	pendingLiveBrightnessPercent = brightnessPercent;
-	if (liveBrightnessDispatchTimer) {
-		return;
+const scenePreviewQueue = createLiveCommandQueue({
+	dispatchIntervalMs: LIVE_SCENE_PREVIEW_DISPATCH_INTERVAL_MS,
+	refreshDelayMs: LIVE_SCENE_PREVIEW_REFRESH_DELAY_MS,
+	save: saveScenePreview,
+	onSuccess: () => {
+		hasLiveScenePreview = true;
+	},
+	onError: (error) => {
+		statusText.textContent = error.message;
+	},
+	refresh: () => {
+		if (!isSubmitting && !editingSceneId && !scenePreviewQueue.isRequestInFlight()) {
+			loadStatus().catch((error) => {
+				statusText.textContent = error.message;
+			});
+		}
 	}
-
-	liveBrightnessDispatchTimer = setTimeout(() => {
-		liveBrightnessDispatchTimer = null;
-		void flushLiveBrightnessQueue();
-	}, LIVE_BRIGHTNESS_DISPATCH_INTERVAL_MS);
-}
+});
 
 async function toggleTarget(lightId) {
 	if (!currentStatus?.manualTargetingEnabled) {
@@ -1369,31 +1582,27 @@ brightnessSlider.addEventListener("input", (event) => {
 	const nextBrightnessPercent = Number(event.target.value);
 	isAdjustingLiveBrightness = true;
 	setBrightnessDisplay(nextBrightnessPercent);
-	queueLiveBrightnessUpdate(nextBrightnessPercent);
+	liveBrightnessQueue.queue(nextBrightnessPercent);
 });
 
 brightnessSlider.addEventListener("change", (event) => {
 	isAdjustingLiveBrightness = false;
-	if (liveBrightnessDispatchTimer) {
-		clearTimeout(liveBrightnessDispatchTimer);
-		liveBrightnessDispatchTimer = null;
-	}
-	queueLiveBrightnessUpdate(Number(event.target.value));
-	void flushLiveBrightnessQueue();
+	liveBrightnessQueue.queue(Number(event.target.value));
+	void liveBrightnessQueue.flushNow();
 });
 
 brightnessSlider.addEventListener("blur", () => {
 	isAdjustingLiveBrightness = false;
-	if (!liveBrightnessRequestInFlight && currentStatus) {
+	if (!liveBrightnessQueue.isRequestInFlight() && currentStatus) {
 		setBrightnessDisplay(currentStatus.liveBrightnessPercent);
-		scheduleLiveBrightnessRefresh();
+		liveBrightnessQueue.scheduleRefresh();
 	}
 });
 
 setInterval(() => {
-	if (!isSubmitting && !isAdjustingLiveBrightness && !liveBrightnessRequestInFlight && !editingSceneId) {
+	if (!isSubmitting && !isAdjustingLiveBrightness && !liveBrightnessQueue.isRequestInFlight() && !editingSceneId) {
 		loadStatus().catch((error) => {
 			statusText.textContent = error.message;
 		});
 	}
-}, 2000);
+}, STATUS_POLL_INTERVAL_MS);

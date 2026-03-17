@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 import { LifxController } from "./lifx-controller.js";
-import { deriveSceneId, validateScenes } from "./scene-utils.js";
+import { deriveSceneId, normalizeScene, validateScenes } from "./scene-utils.js";
 import { saveScenesConfig } from "./scene-store.js";
 
 const RESTART_EXIT_CODE = 75;
@@ -73,23 +73,35 @@ app.put("/api/scenes/:sceneId", async (req, res, next) => {
     saveScenesConfig(validatedScenes);
     scenes = validatedScenes;
     controller.reconcileSceneUpdate(existingScene.id, savedScene);
-    let lastAction = null;
-    let applyError = null;
-
-    try {
-      lastAction = await controller.applyScene(savedScene);
-    } catch (error) {
-      applyError = error instanceof Error ? error.message : String(error);
-    }
 
     res.json({
       ok: true,
       previousSceneId: existingScene.id,
       scene: savedScene,
-      lastAction,
-      applyError,
       status: controller.getStatusPayload(scenes)
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/scene-preview", async (req, res, next) => {
+  try {
+    const previewScene = normalizeScene(
+      {
+        power: req.body?.power,
+        hue: req.body?.hue,
+        saturation: req.body?.saturation,
+        brightness: req.body?.brightness,
+        kelvin: req.body?.kelvin
+      },
+      {
+        defaultSceneKelvin: config.defaultSceneKelvin
+      }
+    );
+
+    const result = await controller.previewScene(previewScene);
+    res.json({ ok: true, result });
   } catch (error) {
     next(error);
   }

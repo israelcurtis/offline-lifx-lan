@@ -6,9 +6,10 @@ import { listActiveLanInterfaces } from "./network-interfaces.js";
 import { pickTargetLights } from "./scene-utils.js";
 
 const { Client } = lifxLanClient;
-const STATE_REFRESH_INTERVAL_MS = 2000;
+const STATE_REFRESH_INTERVAL_MS = 3000;
 const STATE_REFRESH_BUFFER_MS = 250;
 const LIVE_BRIGHTNESS_TRANSITION_MS = 100;
+const LIVE_SCENE_PREVIEW_TRANSITION_MS = 100;
 
 function toPercent(value) {
   return Math.round(value * 100);
@@ -634,105 +635,134 @@ export class LifxController extends EventEmitter {
     };
   }
 
-  async applyScene(scene) {
+  async runSceneCommand(scene, { durationMs, updateLastAction = true } = {}) {
     const targetLights = this.getTargetLights();
     if (targetLights.length === 0) {
       throw new Error("No target bulbs are currently online.");
     }
 
-    const durationMs = this.config.transitionDurationMs;
     const failures = [];
     this.sceneApplyInFlight = true;
 
     try {
-      if (scene.power === "off") {
-        const offResults = await Promise.allSettled(
-          targetLights.map((light) =>
-            invokeCommand((callback) => {
+      const results = await Promise.allSettled(
+        targetLights.map(async (light) => {
+          const cachedState = this.lightStateCache.get(light.id);
+          const resolvedState = cachedState
+            ?? normalizeLightState(await requestLightState(light))
+            ?? {
+              power: "off",
+              hue: 0,
+              saturation: 0,
+              brightness: 0,
+              kelvin: this.config.defaultSceneKelvin,
+              updatedAt: new Date().toISOString()
+            };
+
+          if (scene.power === "off") {
+            await invokeCommand((callback) => {
               light.off(durationMs, callback);
-            })
-          )
-        );
+            });
 
-        offResults.forEach((result, index) => {
-          if (result.status === "rejected") {
-            failures.push({
-              id: targetLights[index].id,
-              label: targetLights[index].label ?? null,
-              address: targetLights[index].address,
-              error: result.reason instanceof Error ? result.reason.message : String(result.reason)
+            this.lightStateCache.set(light.id, {
+              ...resolvedState,
+              power: "off",
+              brightness: 0,
+              updatedAt: new Date().toISOString()
+            });
+            return;
+          }
+
+          const targetBrightness = Math.max(1, toPercent(scene.brightness));
+          if (resolvedState.power === "on") {
+            await invokeCommand((callback) => {
+              light.color(
+                scene.hue,
+                toPercent(scene.saturation),
+                targetBrightness,
+                scene.kelvin,
+                durationMs,
+                callback
+              );
+            });
+          } else {
+            await invokeCommand((callback) => {
+              light.color(
+                scene.hue,
+                toPercent(scene.saturation),
+                1,
+                scene.kelvin,
+                0,
+                callback
+              );
+            });
+
+            await invokeCommand((callback) => {
+              light.on(0, callback);
+            });
+
+            await invokeCommand((callback) => {
+              light.color(
+                scene.hue,
+                toPercent(scene.saturation),
+                targetBrightness,
+                scene.kelvin,
+                durationMs,
+                callback
+              );
             });
           }
-        });
-      } else {
-        const results = await Promise.allSettled(
-          targetLights.map(async (light) => {
-            const state = await requestLightState(light);
-            const targetBrightness = toPercent(scene.brightness);
 
-            if (state?.power === 1) {
-              await invokeCommand((callback) => {
-                light.color(
-                  scene.hue,
-                  toPercent(scene.saturation),
-                  targetBrightness,
-                  scene.kelvin,
-                  durationMs,
-                  callback
-                );
-              });
-            } else {
-              await invokeCommand((callback) => {
-                light.color(
-                  scene.hue,
-                  toPercent(scene.saturation),
-                  1,
-                  scene.kelvin,
-                  0,
-                  callback
-                );
-              });
+          this.lightStateCache.set(light.id, {
+            ...resolvedState,
+            power: "on",
+            hue: Number(scene.hue ?? resolvedState.hue),
+            saturation: toPercent(scene.saturation),
+            brightness: targetBrightness,
+            kelvin: Number(scene.kelvin ?? resolvedState.kelvin),
+            updatedAt: new Date().toISOString()
+          });
+        })
+      );
 
-              await invokeCommand((callback) => {
-                light.on(0, callback);
-              });
-
-              await invokeCommand((callback) => {
-                light.color(
-                  scene.hue,
-                  toPercent(scene.saturation),
-                  targetBrightness,
-                  scene.kelvin,
-                  durationMs,
-                  callback
-                );
-              });
-            }
-          })
-        );
-
-        results.forEach((result, index) => {
-          if (result.status === "rejected") {
-            failures.push({
-              id: targetLights[index].id,
-              label: targetLights[index].label ?? null,
-              address: targetLights[index].address,
-              error: result.reason instanceof Error ? result.reason.message : String(result.reason)
-            });
-          }
-        });
-      }
+      results.forEach((result, index) => {
+        if (result.status === "rejected") {
+          failures.push({
+            id: targetLights[index].id,
+            label: targetLights[index].label ?? null,
+            address: targetLights[index].address,
+            error: result.reason instanceof Error ? result.reason.message : String(result.reason)
+          });
+        }
+      });
     } finally {
       this.sceneApplyInFlight = false;
+    }
+
+    const result = {
+      targetedCount: targetLights.length,
+      successCount: targetLights.length - failures.length,
+      failures
+    };
+
+    if (!updateLastAction) {
+      if (failures.length > 0) {
+        console.warn(
+          `Live scene preview completed with ${failures.length} failure(s): ${failures
+            .map((failure) => describeLight(failure))
+            .join(", ")}`
+        );
+      }
+
+      this.holdStateRefreshes(durationMs + STATE_REFRESH_BUFFER_MS);
+      return result;
     }
 
     this.lastAction = {
       sceneId: scene.id,
       sceneName: scene.name,
       appliedAt: new Date().toISOString(),
-      targetedCount: targetLights.length,
-      successCount: targetLights.length - failures.length,
-      failures
+      ...result
     };
 
     if (failures.length > 0) {
@@ -748,6 +778,20 @@ export class LifxController extends EventEmitter {
     this.emit("update", { type: "scene-applied", lastAction: this.lastAction });
     this.holdStateRefreshes(durationMs + STATE_REFRESH_BUFFER_MS);
     return this.lastAction;
+  }
+
+  async applyScene(scene) {
+    return this.runSceneCommand(scene, {
+      durationMs: this.config.transitionDurationMs,
+      updateLastAction: true
+    });
+  }
+
+  async previewScene(scene) {
+    return this.runSceneCommand(scene, {
+      durationMs: LIVE_SCENE_PREVIEW_TRANSITION_MS,
+      updateLastAction: false
+    });
   }
 
   async setLiveBrightnessPercent(brightnessPercent) {

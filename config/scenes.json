@@ -7,7 +7,7 @@
     "hue": 210,
     "saturation": 0,
     "brightness": 1,
-    "kelvin": 6000
+    "kelvin": 7300
   },
   {
     "id": "gentle-evening",
@@ -16,7 +16,7 @@
     "power": "on",
     "hue": 35,
     "saturation": 0,
-    "brightness": 1,
+    "brightness": 0.6,
     "kelvin": 3000
   },
   {
@@ -44,9 +44,9 @@
     "name": "Red",
     "description": "Fully red",
     "power": "on",
-    "hue": 0,
+    "hue": 359,
     "saturation": 1,
-    "brightness": 0.71,
+    "brightness": 1,
     "kelvin": 5500
   },
   {
@@ -56,18 +56,18 @@
     "power": "on",
     "hue": 240,
     "saturation": 1,
-    "brightness": 0.08,
-    "kelvin": 3500
+    "brightness": 1,
+    "kelvin": 5500
   },
   {
     "id": "green",
     "name": "Green",
     "description": "it’s tasty!",
     "power": "on",
-    "hue": 135,
+    "hue": 121,
     "saturation": 1,
     "brightness": 1,
-    "kelvin": 1500
+    "kelvin": 5500
   },
   {
     "id": "all-off",

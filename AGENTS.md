@@ -239,6 +239,15 @@ Reason:
 
 - continuous polling/re-rendering made drag feel jerkier, especially on touch devices
 
+### Scene editor live preview
+
+The scene editor uses the same fast live-control model as manual brightness:
+
+- frontend dispatch cadence: `100ms`
+- backend preview transition: `100ms`
+- preview commands should not overwrite `lastAction`
+- saving a scene should persist the draft, not re-apply it again
+
 ## Device State / Polling
 
 Per-bulb live state is cached in memory:
@@ -256,7 +265,7 @@ Current cached fields:
 
 Normal background polling interval:
 
-- `2000ms`
+- `3000ms`
 
 But note:
 
@@ -328,6 +337,7 @@ Current routes in `src/server.js`:
 - `GET /api/status`
 - `POST /api/scenes/:sceneId`
 - `PUT /api/scenes/:sceneId`
+- `POST /api/scene-preview`
 - `POST /api/discover`
 - `POST /api/targets`
 - `POST /api/address-groups`

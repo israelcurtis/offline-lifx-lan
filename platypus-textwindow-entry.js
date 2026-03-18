@@ -2,7 +2,8 @@
 
 import path from "node:path";
 import process from "node:process";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const bundledLauncherPath = path.join(process.cwd(), "src", "launcher.js");
+const appRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)));
+const bundledLauncherPath = path.join(appRootDir, "src", "launcher.js");
 await import(pathToFileURL(bundledLauncherPath).href);

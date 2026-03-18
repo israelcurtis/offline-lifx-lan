@@ -1,7 +1,7 @@
-import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { appRootDir, resolveFromAppRoot } from "./app-paths.js";
+import { loadJsonFile, saveJsonFile } from "./json-store.js";
 
 const defaultControllerConfigPath = path.join(appRootDir, "config", "options.json");
 const DEFAULT_TRANSITION_DURATION_MS = 1000;
@@ -43,15 +43,16 @@ export function getControllerConfigFilePath() {
 
 export function loadControllerConfig() {
   const filePath = getControllerConfigFilePath();
-  if (!fs.existsSync(filePath)) {
-    return {
+  const parsed = loadJsonFile(filePath, {
+    onMissing: () => ({
       transitionDurationMs: DEFAULT_TRANSITION_DURATION_MS,
       defaultSceneKelvin: DEFAULT_SCENE_KELVIN
-    };
-  }
-
-  const raw = fs.readFileSync(filePath, "utf8");
-  const parsed = JSON.parse(raw);
+    }),
+    onInvalid: (error) => {
+      console.warn(`Invalid controller config JSON at ${filePath}: ${error.message}`);
+      return {};
+    }
+  });
   return {
     transitionDurationMs: normalizeTransitionDuration(parsed.transitionDurationMs),
     defaultSceneKelvin: normalizeSceneKelvin(parsed.defaultSceneKelvin)
@@ -68,8 +69,7 @@ export function saveControllerConfig({
     defaultSceneKelvin: normalizeSceneKelvin(defaultSceneKelvin)
   };
 
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  saveJsonFile(filePath, payload);
   return payload;
 }
 

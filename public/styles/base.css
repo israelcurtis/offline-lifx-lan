@@ -1,0 +1,241 @@
+:root {
+	color-scheme: light;
+	--bg: #f4efe7;
+	--panel: rgba(255, 252, 247, 0.8);
+	--text: #1f1c18;
+	--muted: #5e564c;
+	--line: rgba(31, 28, 24, 0.12);
+	--accent: #bb4d00;
+	--accent-2: #f7b267;
+	--shadow: 0 24px 60px rgba(73, 47, 24, 0.14);
+}
+
+* {
+	box-sizing: border-box;
+}
+
+[hidden] {
+	display: none !important;
+}
+
+body {
+	margin: 0;
+	min-height: 100vh;
+	font-family: "Avenir Next", "Segoe UI", sans-serif;
+	color: var(--text);
+	background:
+		radial-gradient(circle at top right, rgba(247, 178, 103, 0.55), transparent 28%),
+		linear-gradient(180deg, #f9f4ec 0%, var(--bg) 100%);
+}
+
+.app-shell {
+	width: min(1100px, calc(100% - 32px));
+	margin: 0 auto;
+	padding: 24px 0 64px;
+}
+
+.hero h1 {
+	margin: 0;
+	font-size: clamp(2.6rem, 7vw, 5.5rem);
+	line-height: 0.95;
+}
+
+.eyebrow,
+.panel-label {
+	margin: 0 0 8px;
+	text-transform: uppercase;
+	letter-spacing: 0.14em;
+	font-size: 0.78rem;
+	color: var(--muted);
+}
+
+.hero-copy {
+	max-width: 42rem;
+	font-size: 1.05rem;
+	color: var(--muted);
+}
+
+.status-panel {
+	margin: 28px 0 0;
+	padding: 20px 24px;
+	border: 1px solid var(--line);
+	border-radius: 22px;
+	background: var(--panel);
+	box-shadow: var(--shadow);
+	backdrop-filter: blur(14px);
+}
+
+.status-header,
+.section-header {
+	display: flex;
+	align-items: end;
+	justify-content: space-between;
+	gap: 18px;
+}
+
+.status-actions {
+	display: flex;
+	gap: 10px;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+
+.section-actions {
+	display: flex;
+	gap: 10px;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+
+.devices-header {
+	margin-top: 22px;
+	justify-content: flex-start;
+	align-items: center;
+}
+
+.devices-header h2 {
+	margin: 0;
+}
+
+.devices-header .section-actions {
+	align-items: center;
+	justify-content: flex-start;
+}
+
+.section-header h2 {
+	margin: 24px 0 14px;
+	font-size: 1.8rem;
+}
+
+.metrics {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 14px;
+	margin-top: 18px;
+}
+
+.metric,
+.light-card {
+	border: 1px solid var(--line);
+	border-radius: 20px;
+	background: rgba(255, 255, 255, 0.62);
+}
+
+.metric {
+	padding: 14px 16px;
+}
+
+.metric strong {
+	display: block;
+	margin-top: 6px;
+	font-size: 1.8rem;
+}
+
+.metric-label {
+	color: var(--muted);
+	font-size: 0.85rem;
+}
+
+.warning-text {
+	margin: 16px 0 0;
+	color: #8a2f00;
+	font-weight: 600;
+}
+
+.selection-text {
+	margin: 10px 0 0;
+	color: var(--muted);
+}
+
+.transition-control {
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+}
+
+.transition-control-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 12px;
+}
+
+.transition-control-header strong {
+	font-size: 0.95rem;
+}
+
+.transition-slider {
+	width: 100%;
+	accent-color: #75695d;
+	-webkit-appearance: none;
+	appearance: none;
+	height: 30px;
+	background: transparent;
+	--slider-progress: 0%;
+}
+
+.transition-slider::-webkit-slider-runnable-track {
+	height: 12px;
+	border-radius: 999px;
+	background: linear-gradient(
+		90deg,
+		#75695d 0,
+		#75695d var(--slider-progress),
+		rgba(31, 28, 24, 0.12) var(--slider-progress),
+		rgba(31, 28, 24, 0.12) 100%
+	);
+}
+
+.transition-slider::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 32px;
+	height: 32px;
+	margin-top: -10px;
+	border: 2px solid rgba(31, 28, 24, 0.28);
+	border-radius: 999px;
+	background: #ffffff;
+	box-shadow: 0 4px 12px rgba(31, 28, 24, 0.16);
+}
+
+.transition-slider::-moz-range-track {
+	height: 12px;
+	border: 0;
+	border-radius: 999px;
+	background: rgba(31, 28, 24, 0.12);
+}
+
+.transition-slider::-moz-range-progress {
+	height: 12px;
+	border: 0;
+	border-radius: 999px;
+	background: #75695d;
+}
+
+.transition-slider::-moz-range-thumb {
+	width: 32px;
+	height: 32px;
+	border: 2px solid rgba(31, 28, 24, 0.28);
+	border-radius: 999px;
+	background: #ffffff;
+	box-shadow: 0 4px 12px rgba(31, 28, 24, 0.16);
+}
+
+.transition-slider:focus {
+	outline: none;
+}
+
+.transition-slider:focus::-webkit-slider-thumb {
+	box-shadow: 0 4px 12px rgba(31, 28, 24, 0.16);
+}
+
+.transition-slider:focus::-moz-range-thumb {
+	box-shadow: 0 4px 12px rgba(31, 28, 24, 0.16);
+}
+
+.activity-text {
+	margin: 8px 0 0;
+	color: var(--accent);
+	font-weight: 700;
+}

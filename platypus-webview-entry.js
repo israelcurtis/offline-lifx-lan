@@ -3,8 +3,9 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
-const appRootDir = process.cwd();
+const appRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)));
 const launcherPath = path.join(appRootDir, "src", "launcher.js");
 const controllerUrl = "http://127.0.0.1:3000";
 

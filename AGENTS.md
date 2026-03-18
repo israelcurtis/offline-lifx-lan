@@ -28,8 +28,19 @@ Primary stack:
 Important files:
 
 - `src/server.js`
+- `src/app-factory.js`
 - `src/launcher.js`
 - `src/lifx-controller.js`
+- `src/lifx-client-registry.js`
+- `src/known-device-service.js`
+- `src/light-state-service.js`
+- `src/lifx-command-runner.js`
+- `src/controller-status-service.js`
+- `src/lifx-command-utils.js`
+- `src/domain-utils.js`
+- `src/known-device-model.js`
+- `src/status-model.js`
+- `src/json-store.js`
 - `src/network-interfaces.js`
 - `src/controller-config-store.js`
 - `src/known-devices-store.js`
@@ -44,7 +55,18 @@ Important files:
 
 - `public/index.html`
 - `public/app.js`
+- `public/api.js`
+- `public/state/app-store.js`
+- `public/lib/`
+- `public/ui/`
 - `public/styles.css`
+- `public/styles/`
+
+### Shared pure logic
+
+Important files:
+
+- `shared/domain.js`
 
 ### Config
 
@@ -64,6 +86,7 @@ Normal local startup is:
 - `npm start`
 - which runs `node src/launcher.js`
 - which supervises `src/server.js`
+- and `src/server.js` now boots the Express app through `src/app-factory.js`
 
 Do not remove the launcher casually.
 
@@ -129,6 +152,15 @@ Reason:
 - a single client/bind context was unreliable in that topology
 
 The controller creates one `Client` per active private IPv4 interface.
+
+The current controller split is:
+
+- `src/lifx-controller.js` is the orchestrator facade
+- `src/lifx-client-registry.js` owns interface-bound clients and discovery events
+- `src/light-state-service.js` owns the in-memory state cache and 3s polling loop
+- `src/known-device-service.js` owns local persisted device properties
+- `src/lifx-command-runner.js` owns scene and live-brightness command execution
+- `src/controller-status-service.js` assembles serialized light/status payloads
 
 ## Targeting Model
 
@@ -207,7 +239,10 @@ Implementation touches:
 
 - `public/index.html`
 - `public/app.js`
-- `src/server.js`
+- `public/state/app-store.js`
+- `public/lib/live-command-queue.js`
+- `public/ui/controller-status.js`
+- `src/app-factory.js`
 - `src/lifx-controller.js`
 
 Current API route:
@@ -253,7 +288,7 @@ The scene editor uses the same fast live-control model as brightness override:
 - preview commands should not overwrite `lastAction`
 - saving a scene should persist the draft, not re-apply it again
 - scene preview is sent through `POST /api/scene-preview`
-- editor live preview and brightness override share a reusable frontend live-command queue in `public/app.js`
+- editor live preview and brightness override share a reusable frontend live-command queue in `public/lib/live-command-queue.js`
 
 ## Device State / Polling
 
@@ -374,7 +409,7 @@ The filled track amount is intentionally visible.
 
 ## API Surface
 
-Current routes in `src/server.js`:
+Current routes are registered in `src/app-factory.js` and booted by `src/server.js`:
 
 - `GET /api/status`
 - `POST /api/scenes/:sceneId`
@@ -465,7 +500,8 @@ This `AGENTS.md` should stay focused on instructions and operational context for
 - Treat scene transitions and brightness override as separate behaviors.
 - Treat device targeting toggles as local persisted UI state, not as a bulb-state/network operation.
 - Preserve the optimistic-cache + later-reconciliation model unless you are intentionally redesigning status behavior.
-- If touching `public/app.js`, protect the current keyed DOM-reuse approach for scene cards and device cards.
+- Keep `public/app.js` as a thin bootstrap that wires DOM, state, API actions, and UI modules together.
+- If touching `public/ui/scene-grid.js` or `public/ui/device-grid.js`, protect the current keyed DOM-reuse approach for scene cards and device cards.
 - Re-test Platypus behavior after changes to icons, lifecycle, or path resolution.
 - If backend code changes while the app is running, use the in-app `Restart Server` button to reload it.
 - If frontend-only code changes, a normal refresh is usually enough.

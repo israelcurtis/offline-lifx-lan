@@ -46,25 +46,25 @@ test("saveKnownDevicesState normalizes ids and loadKnownDevicesState reads them 
   const knownDevicesPath = process.env.KNOWN_DEVICES_PATH;
 
   saveKnownDevicesState({
-    enabledIds: ["a", "a", "b", ""],
-    disabledIds: ["b", "c", "c", ""],
-    capabilitiesById: {
-      a: { color: true },
-      c: { color: false },
-      "": { color: true }
-    }
+    devices: [
+      { id: "a", enabled: true, color: true },
+      { id: "a", enabled: false, color: false },
+      { id: "b", enabled: true },
+      { id: "c", enabled: false, color: false },
+      { id: "", enabled: true }
+    ]
   });
 
   assert.deepEqual(loadKnownDevicesState(), {
     devices: [
-      { id: "a", enabled: true, color: true },
+      { id: "a", enabled: false, color: false },
       { id: "b", enabled: true },
       { id: "c", enabled: false, color: false }
     ],
-    enabledIds: ["a", "b"],
-    disabledIds: ["c"],
+    enabledIds: ["b"],
+    disabledIds: ["a", "c"],
     capabilitiesById: {
-      a: { color: true },
+      a: { color: false },
       c: { color: false }
     }
   });
@@ -72,7 +72,7 @@ test("saveKnownDevicesState normalizes ids and loadKnownDevicesState reads them 
   const savedFile = JSON.parse(fs.readFileSync(knownDevicesPath, "utf8"));
   assert.deepEqual(savedFile, {
     devices: [
-      { id: "a", enabled: true, color: true },
+      { id: "a", enabled: false, color: false },
       { id: "b", enabled: true },
       { id: "c", enabled: false, color: false }
     ]
@@ -106,5 +106,17 @@ test("loadKnownDevicesState reads the consolidated devices array format", () => 
       a: { color: true },
       b: { color: false }
     }
+  });
+});
+
+test("loadKnownDevicesState falls back to an empty device list when the JSON is invalid", () => {
+  process.env.KNOWN_DEVICES_PATH = makeTempKnownDevicesPath();
+  fs.writeFileSync(process.env.KNOWN_DEVICES_PATH, "{invalid json\n", "utf8");
+
+  assert.deepEqual(loadKnownDevicesState(), {
+    devices: [],
+    enabledIds: [],
+    disabledIds: [],
+    capabilitiesById: {}
   });
 });

@@ -1,0 +1,55 @@
+@media (max-width: 640px) {
+	.app-shell {
+		width: min(100% - 20px, 1100px);
+		padding-top: 28px;
+	}
+
+	.metrics {
+		grid-template-columns: 1fr;
+	}
+
+	.scene-editor-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.scene-editor-control-panel {
+		grid-column: auto;
+		grid-row: auto;
+		min-height: 0;
+		padding: 0;
+	}
+
+	.scene-editor-mode-field {
+		grid-column: auto;
+	}
+
+	.status-header,
+	.section-header,
+	.device-group-header,
+	.scene-editor-header {
+		align-items: start;
+		flex-direction: column;
+	}
+
+	.status-actions {
+		width: 100%;
+		justify-content: stretch;
+	}
+
+	.section-actions {
+		width: 100%;
+		justify-content: stretch;
+	}
+
+	.device-group-summary {
+		width: 100%;
+	}
+
+	.device-group-actions {
+		width: 100%;
+	}
+
+	.device-group-grid {
+		grid-template-columns: 1fr;
+	}
+}

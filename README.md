@@ -2,6 +2,55 @@
 
 Offline local controller for LIFX bulbs using the LIFX LAN protocol and a browser UI. It runs on your Mac, talks directly to bulbs over UDP through [`lifx-lan-client`](https://github.com/node-lifx/lifx-lan-client), and does not depend on the LIFX cloud API.
 
+## Architecture
+
+Current backend entry and composition:
+
+- `src/server.js`
+- `src/app-factory.js`
+- `src/config.js`
+- `src/lifx-controller.js`
+
+Current backend support modules:
+
+- `src/lifx-client-registry.js`
+- `src/known-device-service.js`
+- `src/light-state-service.js`
+- `src/lifx-command-runner.js`
+- `src/controller-status-service.js`
+- `src/domain-utils.js`
+- `src/lifx-command-utils.js`
+- `src/known-device-model.js`
+- `src/status-model.js`
+- `src/json-store.js`
+- `src/controller-config-store.js`
+- `src/known-devices-store.js`
+- `src/scene-store.js`
+- `src/network-interfaces.js`
+- `src/app-paths.js`
+
+Shared pure domain helpers:
+
+- `shared/domain.js`
+
+Current frontend structure:
+
+- `public/app.js` is the browser bootstrap
+- `public/api.js` contains internal UI fetch calls
+- `public/state/app-store.js` owns current status and transient UI state
+- `public/ui/` contains the render modules
+- `public/lib/` contains browser-side helpers such as color preview math and live-command queues
+- `public/styles.css` imports feature-area CSS from `public/styles/`
+
+Current controller split:
+
+- `src/lifx-controller.js` remains the public controller façade
+- `src/lifx-client-registry.js` owns interface-bound LIFX clients and discovery
+- `src/light-state-service.js` owns the optimistic state cache and background polling
+- `src/known-device-service.js` owns local persisted device records
+- `src/lifx-command-runner.js` owns scene apply / preview / brightness command paths
+- `src/controller-status-service.js` builds serialized UI payloads
+
 ## Current capabilities
 
 - Discovers bulbs across multiple active private IPv4 interfaces on the host.
@@ -140,6 +189,13 @@ The browser interface currently includes:
 - subnet-level `Enable All` / `Disable All` buttons
 - live device swatches and state readout
 
+Current frontend behavior is split by role:
+
+- state and optimistic UI behavior live in `public/state/app-store.js`
+- status/device/scene rendering lives in `public/ui/`
+- shared browser logic lives in `public/lib/`
+- `public/app.js` should stay a thin composition/bootstrap file
+
 Current editor behavior:
 
 - only one scene can be edited at a time
@@ -168,7 +224,7 @@ Returns the full controller status payload used by the UI, including:
 
 - discovered devices
 - subnet groups
-- enabled and disabled device IDs
+- canonical `knownDevices` local device records
 - online and enabled counts
 - global transition duration
 - global default scene Kelvin

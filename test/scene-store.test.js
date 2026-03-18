@@ -47,3 +47,16 @@ test("saveScenesConfig writes scenes and loadScenesConfig reads them back", () =
 
   assert.deepEqual(loadScenesConfig(), scenes);
 });
+
+test("loadScenesConfig throws when the file is missing", () => {
+  process.env.SCENES_PATH = makeTempScenesPath();
+
+  assert.throws(() => loadScenesConfig(), /Scene configuration file not found/);
+});
+
+test("loadScenesConfig throws when the JSON is invalid", () => {
+  process.env.SCENES_PATH = makeTempScenesPath();
+  fs.writeFileSync(process.env.SCENES_PATH, "{invalid json\n", "utf8");
+
+  assert.throws(() => loadScenesConfig(), /Invalid scene configuration/);
+});

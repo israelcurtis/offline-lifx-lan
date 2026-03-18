@@ -55,3 +55,13 @@ test("saveControllerConfig persists transition duration and default scene kelvin
   });
   assert.deepEqual(loadControllerConfig(), savedConfig);
 });
+
+test("loadControllerConfig falls back to tracked defaults when the JSON is invalid", () => {
+  process.env.CONTROLLER_CONFIG_PATH = makeTempOptionsPath();
+  fs.writeFileSync(process.env.CONTROLLER_CONFIG_PATH, "{invalid json\n", "utf8");
+
+  assert.deepEqual(loadControllerConfig(), {
+    transitionDurationMs: DEFAULT_TRANSITION_DURATION_MS,
+    defaultSceneKelvin: DEFAULT_SCENE_KELVIN
+  });
+});

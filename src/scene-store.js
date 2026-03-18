@@ -1,7 +1,7 @@
-import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { appRootDir, resolveFromAppRoot } from "./app-paths.js";
+import { loadJsonFile, saveJsonFile } from "./json-store.js";
 
 const defaultScenePath = path.join(appRootDir, "config", "scenes.json");
 
@@ -12,12 +12,24 @@ export function getScenesFilePath() {
 }
 
 export function loadScenesConfig() {
-  const raw = fs.readFileSync(getScenesFilePath(), "utf8");
-  return JSON.parse(raw);
+  const filePath = getScenesFilePath();
+  const scenes = loadJsonFile(filePath, {
+    onMissing: () => {
+      throw new Error(`Scene configuration file not found at ${filePath}.`);
+    },
+    onInvalid: (error) => {
+      throw new Error(`Invalid scene configuration in ${filePath}: ${error.message}`);
+    }
+  });
+
+  if (!Array.isArray(scenes)) {
+    throw new Error(`Scene configuration in ${filePath} must be a JSON array.`);
+  }
+
+  return scenes;
 }
 
 export function saveScenesConfig(scenes) {
   const filePath = getScenesFilePath();
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify(scenes, null, 2)}\n`, "utf8");
+  saveJsonFile(filePath, scenes);
 }

@@ -8,10 +8,10 @@ import { loadScenesConfig } from "./scene-store.js";
 
 dotenv.config({ path: path.join(appRootDir, ".env"), quiet: true });
 
-const controllerConfig = loadControllerConfig();
-const knownDevicesState = loadKnownDevicesState();
-
 export function loadConfig() {
+  const controllerConfig = loadControllerConfig();
+  const knownDevicesState = loadKnownDevicesState();
+
   return {
     port: Number.parseInt(process.env.PORT ?? "3000", 10),
     discoveryWaitMs: Number.parseInt(process.env.DISCOVERY_WAIT_MS ?? "4000", 10),

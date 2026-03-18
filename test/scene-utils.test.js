@@ -6,7 +6,7 @@ import {
   normalizeScene,
   pickTargetLights,
   validateScenes
-} from "../src/scene-utils.js";
+} from "../src/domain-utils.js";
 
 test("deriveSceneId slugifies names", () => {
   assert.equal(deriveSceneId(" Gentle Evening! "), "gentle-evening");

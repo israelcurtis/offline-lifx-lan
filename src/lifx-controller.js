@@ -87,14 +87,6 @@ export class LifxController extends EventEmitter {
     return this.knownDeviceService.getRecord(lightId);
   }
 
-  getEnabledTargetIds() {
-    return this.knownDeviceService.getEnabledTargetIds();
-  }
-
-  getDisabledTargetIds() {
-    return this.knownDeviceService.getDisabledTargetIds();
-  }
-
   async start() {
     if (this.started) {
       return;

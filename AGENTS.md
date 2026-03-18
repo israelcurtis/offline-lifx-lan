@@ -45,7 +45,6 @@ Important files:
 - `src/controller-config-store.js`
 - `src/known-devices-store.js`
 - `src/scene-store.js`
-- `src/scene-utils.js`
 - `src/config.js`
 - `src/app-paths.js`
 
@@ -76,8 +75,13 @@ Important files:
 
 ### Packaging helpers
 
-- `platypus-entry.js`
+- `platypus-textwindow-entry.js`
 - `platypus-webview-entry.js`
+
+These wrapper entry scripts exist because Platypus renames the selected script to
+`Contents/Resources/script`, which breaks direct relative imports if you point Platypus
+at the real runtime modules. The wrappers bridge from the Platypus entrypoint back to the
+actual app files in bundled or symlinked `src/`.
 
 ## Important Runtime Model
 
@@ -124,6 +128,9 @@ Implementation:
 This was necessary to support Platypus bundling and is also more robust for normal use.
 
 Do not revert back to cwd-relative path logic unless you understand the packaging implications.
+
+Non-absolute environment override paths such as `SCENES_PATH`, `CONTROLLER_CONFIG_PATH`, and
+`KNOWN_DEVICES_PATH` are resolved relative to the app root.
 
 Affected areas:
 
@@ -294,7 +301,7 @@ The scene editor uses the same fast live-control model as brightness override:
 
 Per-bulb live state is cached in memory:
 
-- `this.lightStateCache` in `src/lifx-controller.js`
+- `LightStateService.cache` in `src/light-state-service.js`
 
 Current cached fields:
 
@@ -314,6 +321,11 @@ But note:
 - scene application blocks refreshes temporarily
 - brightness override drag also suppresses refresh churn
 - scene editor preview also suppresses refresh churn while editing
+
+For scene application specifically:
+
+- refreshes are held for `transitionDurationMs + 250ms`
+- then a one-shot refresh runs
 
 Important current behavior:
 
@@ -340,7 +352,7 @@ Current card design:
 - device ID
 - green/red connectivity badge using icon-only `wifi` / warning glyphs
 - RGB / White capability indicator from discovery-time hardware metadata
-- clickable uppercase `ENABLED` / `DISABLED` badge
+- clickable icon-only enable/disable target toggle
 
 ### Disabled visuals
 
@@ -426,11 +438,11 @@ If API changes are made, update the README API section too.
 
 ## Platypus Context
 
-Platypus is currently used as a practical packaging wrapper.
+Platypus is currently used as a practical packaging wrapper to create a standalone mac desktop app.
 
 Two entry scripts exist:
 
-- `platypus-entry.js`
+- `platypus-textwindow-entry.js`
 - `platypus-webview-entry.js`
 
 ### Important Web View behavior
@@ -469,8 +481,6 @@ That means:
 - be careful when changing entry scripts or server lifecycle behavior
 
 ## Naming Caveat
-
-There has been discussion of renaming the repo/folder to `offline-lifx-lan`.
 
 At the time this file was written:
 

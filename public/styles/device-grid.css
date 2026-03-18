@@ -141,7 +141,7 @@
 	align-items: center;
 	gap: 5px;
 	height: 34px;
-	padding: 0 8px;
+	padding: 0 10px 0 8px;
 	background: rgba(31, 28, 24, 0.06);
 	color: rgba(94, 86, 76, 0.9);
 }

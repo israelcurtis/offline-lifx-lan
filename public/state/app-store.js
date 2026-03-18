@@ -46,10 +46,6 @@ export function createAppStore() {
 			listeners.add(listener);
 			return () => listeners.delete(listener);
 		},
-		patch(nextState) {
-			Object.assign(state, nextState);
-			emit();
-		},
 		setStatus(payload) {
 			state.currentStatus = payload;
 			emit();
@@ -113,10 +109,6 @@ export function createAppStore() {
 		},
 		setLiveScenePreview(next) {
 			state.hasLiveScenePreview = next;
-			emit();
-		},
-		setCurrentStatusSnapshot(payload) {
-			state.currentStatus = payload;
 			emit();
 		},
 		cancelTimers() {

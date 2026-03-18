@@ -20,12 +20,6 @@
 	font-size: 1.45rem;
 }
 
-.scene-editor-subtitle {
-	margin: 8px 0 0;
-	max-width: 42rem;
-	color: var(--muted);
-}
-
 .scene-editor-grid {
 	display: grid;
 	grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);

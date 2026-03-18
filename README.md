@@ -1,55 +1,6 @@
 # LIFX LAN Controller
 
-Offline local controller for LIFX bulbs using the LIFX LAN protocol and a browser UI. It runs on your Mac, talks directly to bulbs over UDP through [`lifx-lan-client`](https://github.com/node-lifx/lifx-lan-client), and does not depend on the LIFX cloud API.
-
-## Architecture
-
-Current backend entry and composition:
-
-- `src/server.js`
-- `src/app-factory.js`
-- `src/config.js`
-- `src/lifx-controller.js`
-
-Current backend support modules:
-
-- `src/lifx-client-registry.js`
-- `src/known-device-service.js`
-- `src/light-state-service.js`
-- `src/lifx-command-runner.js`
-- `src/controller-status-service.js`
-- `src/domain-utils.js`
-- `src/lifx-command-utils.js`
-- `src/known-device-model.js`
-- `src/status-model.js`
-- `src/json-store.js`
-- `src/controller-config-store.js`
-- `src/known-devices-store.js`
-- `src/scene-store.js`
-- `src/network-interfaces.js`
-- `src/app-paths.js`
-
-Shared pure domain helpers:
-
-- `shared/domain.js`
-
-Current frontend structure:
-
-- `public/app.js` is the browser bootstrap
-- `public/api.js` contains internal UI fetch calls
-- `public/state/app-store.js` owns current status and transient UI state
-- `public/ui/` contains the render modules
-- `public/lib/` contains browser-side helpers such as color preview math and live-command queues
-- `public/styles.css` imports feature-area CSS from `public/styles/`
-
-Current controller split:
-
-- `src/lifx-controller.js` remains the public controller façade
-- `src/lifx-client-registry.js` owns interface-bound LIFX clients and discovery
-- `src/light-state-service.js` owns the optimistic state cache and background polling
-- `src/known-device-service.js` owns local persisted device records
-- `src/lifx-command-runner.js` owns scene apply / preview / brightness command paths
-- `src/controller-status-service.js` builds serialized UI payloads
+Offline local controller for LIFX bulbs using the LIFX LAN protocol and a browser UI. It runs on your device via npm, talks directly to bulbs over UDP through [`lifx-lan-client`](https://github.com/node-lifx/lifx-lan-client), and does not depend on the LIFX cloud API.
 
 ## Current capabilities
 
@@ -61,6 +12,7 @@ Current controller split:
 - Supports `Color`, `White`, and `Off` scene modes in the editor.
 - Lets you adjust a global `Brightness Override` slider after a scene is applied.
 - Groups devices by subnet and supports per-device and bulk subnet targeting.
+- Discovers and caches per-device RGB vs white-only capability metadata during LAN scans.
 - Persists tracked global options separately from gitignored local device state.
 
 ## Run
@@ -184,7 +136,7 @@ The browser interface currently includes:
 - `Restart Server` in controller status
 - `Rescan LAN` beside the `Devices` section header
 - subnet-grouped device lists
-- per-device `ENABLED` / `DISABLED` targeting pills
+- per-device icon-only enable/disable target toggle
 - per-device RGB / White capability indicator based on discovery-time hardware metadata
 - subnet-level `Enable All` / `Disable All` buttons
 - live device swatches and state readout
@@ -208,11 +160,15 @@ Current editor behavior:
 The app uses a mixed optimistic + reconciled status model:
 
 - background polling runs every `3000ms`
-- scene applies, live editor preview, and brightness override update the in-memory bulb state cache immediately
+- scene applies, live editor preview, and brightness override update the in-memory state cache immediately
 - the UI therefore updates right away to the commanded target state
 - later polling reconciles the UI back to actual bulb-reported state if a bulb missed a command
 
 This is intentional. It keeps the UI responsive while still allowing correction after dropped UDP commands or stale assumptions.
+
+Implementation note:
+
+- the live cache and polling loop are owned by `src/light-state-service.js`
 
 ## API
 
@@ -230,6 +186,7 @@ Returns the full controller status payload used by the UI, including:
 - global default scene Kelvin
 - available scenes
 - last scene action
+- per-light capability metadata and current cached state
 
 ### `POST /api/scenes/:sceneId`
 
@@ -366,6 +323,55 @@ Response shape:
 ```
 
 This route only restarts correctly when the app was started through `npm start` / `node src/launcher.js`.
+
+## Architecture
+
+Current backend entry and composition:
+
+- `src/server.js`
+- `src/app-factory.js`
+- `src/config.js`
+- `src/lifx-controller.js`
+
+Current backend support modules:
+
+- `src/lifx-client-registry.js`
+- `src/known-device-service.js`
+- `src/light-state-service.js`
+- `src/lifx-command-runner.js`
+- `src/controller-status-service.js`
+- `src/domain-utils.js`
+- `src/lifx-command-utils.js`
+- `src/known-device-model.js`
+- `src/status-model.js`
+- `src/json-store.js`
+- `src/controller-config-store.js`
+- `src/known-devices-store.js`
+- `src/scene-store.js`
+- `src/network-interfaces.js`
+- `src/app-paths.js`
+
+Shared pure domain helpers:
+
+- `shared/domain.js`
+
+Current frontend structure:
+
+- `public/app.js` is the browser bootstrap
+- `public/api.js` contains internal UI fetch calls
+- `public/state/app-store.js` owns current status and transient UI state
+- `public/ui/` contains the render modules
+- `public/lib/` contains browser-side helpers such as color preview math and live-command queues
+- `public/styles.css` imports feature-area CSS from `public/styles/`
+
+Current controller split:
+
+- `src/lifx-controller.js` remains the public controller façade
+- `src/lifx-client-registry.js` owns interface-bound LIFX clients and discovery
+- `src/light-state-service.js` owns the optimistic state cache and background polling
+- `src/known-device-service.js` owns local persisted device records
+- `src/lifx-command-runner.js` owns scene apply / preview / brightness command paths
+- `src/controller-status-service.js` builds serialized UI payloads
 
 ## Notes
 

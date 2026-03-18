@@ -34,14 +34,6 @@ export class KnownDeviceService {
     return getKnownDeviceRecord(this.getDevices(), lightId);
   }
 
-  getEnabledTargetIds() {
-    return this.getDevices().filter((device) => device.enabled).map((device) => device.id);
-  }
-
-  getDisabledTargetIds() {
-    return this.getDevices().filter((device) => !device.enabled).map((device) => device.id);
-  }
-
   syncDiscoveredLights(lights) {
     if (this.hasFixedTargetSelector() || lights.length === 0) {
       return null;

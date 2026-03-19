@@ -19,7 +19,7 @@ import {
 	getDefaultSceneKelvin,
 	makeSceneDraft
 } from "./lib/light-model.js";
-import { updateSliderProgress } from "./lib/dom-utils.js";
+import { mediaQueryMatches, updateSliderProgress } from "./lib/dom-utils.js";
 import { createLiveCommandQueue } from "./lib/live-command-queue.js";
 import { createAppStore } from "./state/app-store.js";
 import { renderControllerStatus } from "./ui/controller-status.js";
@@ -97,7 +97,7 @@ function updateTransitionSliderDisplay(durationMs) {
 }
 
 function updateBrightnessSliderDisplay(brightnessPercent) {
-	const nextValue = String(Math.round(brightnessPercent ?? 0));
+	const nextValue = String(Math.round(brightnessPercent == null ? 0 : brightnessPercent));
 	elements.brightnessSlider.value = nextValue;
 	elements.brightnessValue.textContent = formatBrightnessLabel(brightnessPercent);
 	updateSliderProgress(elements.brightnessSlider, nextValue);
@@ -118,10 +118,11 @@ function openSceneEditor(scene) {
 	scenePreviewQueue.clearPending();
 	store.setLiveScenePreview(false);
 
-	if (window.matchMedia?.("(max-width: 640px)")?.matches) {
+	// Keep media-query checks compatible with older Safari while preserving current behavior.
+	if (mediaQueryMatches("(max-width: 640px)")) {
 		requestAnimationFrame(() => {
 			elements.sceneEditorSection.scrollIntoView({
-				behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ? "auto" : "smooth",
+				behavior: mediaQueryMatches("(prefers-reduced-motion: reduce)") ? "auto" : "smooth",
 				block: "start"
 			});
 		});
@@ -142,7 +143,8 @@ async function handleApplyScene(sceneId) {
 }
 
 async function handleSaveEditingScene() {
-	const scene = (state.currentStatus?.scenes ?? []).find((entry) => entry.id === state.editingSceneId);
+	const currentScenes = state.currentStatus && state.currentStatus.scenes ? state.currentStatus.scenes : [];
+	const scene = currentScenes.find((entry) => entry.id === state.editingSceneId);
 	if (!scene || !state.editingSceneDraft) {
 		return;
 	}
@@ -157,11 +159,13 @@ async function handleSaveEditingScene() {
 		});
 
 		if (
-			state.currentStatus?.lastAction?.sceneId === payload.previousSceneId
+			state.currentStatus
+			&& state.currentStatus.lastAction
+			&& state.currentStatus.lastAction.sceneId === payload.previousSceneId
 			|| state.hasLiveScenePreview
 		) {
 			payload.status.lastAction = {
-				...(payload.status.lastAction ?? {}),
+				...(payload.status.lastAction || {}),
 				sceneId: payload.scene.id,
 				sceneName: payload.scene.name,
 				appliedAt: new Date().toISOString()
@@ -179,16 +183,16 @@ async function handleSaveEditingScene() {
 }
 
 async function handleToggleTarget(lightId) {
-	if (!state.currentStatus?.manualTargetingEnabled || state.isSavingTargetState) {
+	if (!state.currentStatus || !state.currentStatus.manualTargetingEnabled || state.isSavingTargetState) {
 		return;
 	}
 
-	const light = state.currentStatus?.lights?.find((entry) => entry.id === lightId);
+	const light = (state.currentStatus.lights || []).find((entry) => entry.id === lightId);
 	if (!light) {
 		return;
 	}
 
-	const nextKnownDevices = (state.currentStatus.knownDevices ?? []).map((device) => (
+	const nextKnownDevices = (state.currentStatus.knownDevices || []).map((device) => (
 		device.id === lightId
 			? { ...device, enabled: !(light.enabled !== false) }
 			: device
@@ -212,16 +216,16 @@ async function handleToggleTarget(lightId) {
 }
 
 async function handleToggleAddressGroup(addressGroup, enabled) {
-	if (!state.currentStatus?.manualTargetingEnabled || state.isSavingTargetState) {
+	if (!state.currentStatus || !state.currentStatus.manualTargetingEnabled || state.isSavingTargetState) {
 		return;
 	}
 
 	const groupLightIds = new Set(
-		(state.currentStatus.lights ?? [])
+		(state.currentStatus.lights || [])
 			.filter((light) => light.addressGroup === addressGroup)
 			.map((light) => light.id)
 	);
-	const nextKnownDevices = (state.currentStatus.knownDevices ?? []).map((device) => (
+	const nextKnownDevices = (state.currentStatus.knownDevices || []).map((device) => (
 		groupLightIds.has(device.id)
 			? { ...device, enabled }
 			: device
@@ -255,7 +259,9 @@ const liveBrightnessQueue = createLiveCommandQueue({
 
 		store.setStatus({
 			...state.currentStatus,
-			liveBrightnessPercent: payload?.result?.brightnessPercent ?? brightnessPercent
+			liveBrightnessPercent: payload && payload.result && payload.result.brightnessPercent != null
+				? payload.result.brightnessPercent
+				: brightnessPercent
 		});
 	},
 	onError: (error) => {
@@ -352,7 +358,11 @@ elements.transitionDurationSlider.addEventListener("change", async (event) => {
 		store.setStatus(payload);
 	} catch (error) {
 		showError(error);
-		updateTransitionSliderDisplay(state.currentStatus?.transitionDurationMs ?? 1000);
+		updateTransitionSliderDisplay(
+			state.currentStatus && state.currentStatus.transitionDurationMs != null
+				? state.currentStatus.transitionDurationMs
+				: 1000
+		);
 	} finally {
 		store.setAdjustingTransitionDuration(false);
 		store.setSubmitting(false);
@@ -362,7 +372,11 @@ elements.transitionDurationSlider.addEventListener("change", async (event) => {
 elements.transitionDurationSlider.addEventListener("blur", () => {
 	if (!state.isSubmitting) {
 		store.setAdjustingTransitionDuration(false);
-		updateTransitionSliderDisplay(state.currentStatus?.transitionDurationMs ?? 1000);
+		updateTransitionSliderDisplay(
+			state.currentStatus && state.currentStatus.transitionDurationMs != null
+				? state.currentStatus.transitionDurationMs
+				: 1000
+		);
 	}
 });
 

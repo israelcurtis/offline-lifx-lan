@@ -47,7 +47,10 @@ export function getEditableSceneBrightnessPercent(brightnessPercent, colorMode) 
 }
 
 export function getDefaultSceneKelvin(currentStatus, fallback = FALLBACK_DEFAULT_SCENE_KELVIN) {
-	return Math.round(currentStatus?.defaultSceneKelvin ?? fallback);
+	const defaultSceneKelvin = currentStatus && currentStatus.defaultSceneKelvin != null
+		? currentStatus.defaultSceneKelvin
+		: fallback;
+	return Math.round(defaultSceneKelvin);
 }
 
 function hsbToRgb(hue, saturation, brightness) {
@@ -107,13 +110,15 @@ export function kelvinToRgb(kelvin) {
 		{ kelvin: 6500, rgb: { red: 241, green: 244, blue: 255 } },
 		{ kelvin: 9000, rgb: { red: 222, green: 232, blue: 255 } }
 	];
+	const lastAnchor = anchors[anchors.length - 1];
 
 	if (kelvin <= anchors[0].kelvin) {
 		return anchors[0].rgb;
 	}
 
-	if (kelvin >= anchors.at(-1).kelvin) {
-		return anchors.at(-1).rgb;
+	// Safari 12 lacks Array.prototype.at(), so keep the last-anchor lookup explicit.
+	if (kelvin >= lastAnchor.kelvin) {
+		return lastAnchor.rgb;
 	}
 
 	for (let index = 0; index < anchors.length - 1; index += 1) {
@@ -125,7 +130,7 @@ export function kelvinToRgb(kelvin) {
 		}
 	}
 
-	return anchors.at(-1).rgb;
+	return lastAnchor.rgb;
 }
 
 function rgbToCss({ red, green, blue }) {
@@ -223,7 +228,7 @@ export function getPerceptualKelvinColor(kelvin, brightnessPercent) {
 }
 
 export function getSceneButtonAppearance(scene, defaultSceneKelvin = FALLBACK_DEFAULT_SCENE_KELVIN) {
-	if (scene.power === "off" || Number(scene.brightness ?? 0) <= 0) {
+	if (scene.power === "off" || Number(scene.brightness == null ? 0 : scene.brightness) <= 0) {
 		return {
 			cssColor: "rgb(0, 0, 0)",
 			rgb: { red: 0, green: 0, blue: 0 }
@@ -232,15 +237,15 @@ export function getSceneButtonAppearance(scene, defaultSceneKelvin = FALLBACK_DE
 
 	if (inferSceneMode(scene) === "white") {
 		return getPerceptualKelvinColor(
-			scene.kelvin ?? defaultSceneKelvin,
-			Math.round((scene.brightness ?? 0) * 100)
+			scene.kelvin == null ? defaultSceneKelvin : scene.kelvin,
+			Math.round((scene.brightness == null ? 0 : scene.brightness) * 100)
 		);
 	}
 
 	return getPerceptualHueColor(
-		scene.hue ?? 0,
-		Math.max(22, Math.round((scene.saturation ?? 0) * 100)),
-		Math.round((scene.brightness ?? 0) * 100)
+		scene.hue == null ? 0 : scene.hue,
+		Math.max(22, Math.round((scene.saturation == null ? 0 : scene.saturation) * 100)),
+		Math.round((scene.brightness == null ? 0 : scene.brightness) * 100)
 	);
 }
 
@@ -288,11 +293,11 @@ export function makeSceneDraft(scene, defaultSceneKelvin = FALLBACK_DEFAULT_SCEN
 	const colorMode = inferSceneMode(scene);
 	return {
 		name: scene.name,
-		description: scene.description ?? "",
-		hue: Math.round(scene.hue ?? 0),
-		saturation: Math.round((scene.saturation ?? 0) * 100),
-		brightness: getEditableSceneBrightnessPercent(Math.round((scene.brightness ?? 0) * 100), colorMode),
-		kelvin: Math.round(scene.kelvin ?? defaultSceneKelvin),
+		description: scene.description == null ? "" : scene.description,
+		hue: Math.round(scene.hue == null ? 0 : scene.hue),
+		saturation: Math.round((scene.saturation == null ? 0 : scene.saturation) * 100),
+		brightness: getEditableSceneBrightnessPercent(Math.round((scene.brightness == null ? 0 : scene.brightness) * 100), colorMode),
+		kelvin: Math.round(scene.kelvin == null ? defaultSceneKelvin : scene.kelvin),
 		colorMode
 	};
 }
@@ -345,7 +350,7 @@ export function getStateSwatchColor(currentState, light) {
 	}
 
 	if (
-		light?.capabilities?.color === false
+		(light && light.capabilities && light.capabilities.color === false)
 		|| normalizeBrightnessPercent(currentState.saturation) <= LIGHT_WHITE_SATURATION_THRESHOLD_PERCENT
 	) {
 		return getPerceptualKelvinColor(currentState.kelvin, currentState.brightness).cssColor;
@@ -368,7 +373,7 @@ export function getStateLabel(currentState, light) {
 	}
 
 	if (
-		light?.capabilities?.color === false
+		(light && light.capabilities && light.capabilities.color === false)
 		|| normalizeBrightnessPercent(currentState.saturation) <= LIGHT_WHITE_SATURATION_THRESHOLD_PERCENT
 	) {
 		return `${Math.round(currentState.brightness)}% · ${Math.round(currentState.kelvin)}K`;
@@ -378,5 +383,5 @@ export function getStateLabel(currentState, light) {
 }
 
 export function hasLiveScenePreviewTargets(currentStatus) {
-	return getActionableLightCount(currentStatus?.lights) > 0;
+	return getActionableLightCount(currentStatus ? currentStatus.lights : null) > 0;
 }

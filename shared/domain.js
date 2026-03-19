@@ -9,7 +9,8 @@ export function clamp(value, min, max) {
 }
 
 export function deriveSceneId(name) {
-  const normalized = String(name ?? "")
+  // Safari 12 parses this shared file for the browser UI, so avoid newer syntax here.
+  const normalized = String(name == null ? "" : name)
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
@@ -26,11 +27,11 @@ export function deriveSceneId(name) {
 }
 
 export function inferSceneMode(scene) {
-  if (scene?.power === "off") {
+  if (scene && scene.power === "off") {
     return "off";
   }
 
-  return Number(scene?.saturation ?? 0) <= SCENE_WHITE_SATURATION_THRESHOLD
+  return Number(scene && scene.saturation != null ? scene.saturation : 0) <= SCENE_WHITE_SATURATION_THRESHOLD
     ? "white"
     : "color";
 }
@@ -45,5 +46,5 @@ export function normalizeBrightnessPercent(value) {
 }
 
 export function normalizeSceneKelvin(kelvin, fallback = DEFAULT_SCENE_KELVIN) {
-  return clamp(Number(kelvin ?? fallback), MIN_SCENE_KELVIN, MAX_SCENE_KELVIN);
+  return clamp(Number(kelvin == null ? fallback : kelvin), MIN_SCENE_KELVIN, MAX_SCENE_KELVIN);
 }

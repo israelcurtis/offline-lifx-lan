@@ -11,10 +11,15 @@ import {
 	makeSceneDraft,
 	updateSceneDraftFromWheel
 } from "../lib/light-model.js";
-import { updateSliderProgress } from "../lib/dom-utils.js";
+import { replaceNodeChildren, updateSliderProgress } from "../lib/dom-utils.js";
 
 function queueEditorScenePreview(state, queues) {
-	if (!state.editingSceneDraft || !state.currentStatus?.lights?.some((light) => light.enabled !== false && light.status === "on")) {
+	if (
+		!state.editingSceneDraft
+		|| !state.currentStatus
+		|| !state.currentStatus.lights
+		|| !state.currentStatus.lights.some((light) => light.enabled !== false && light.status === "on")
+	) {
 		return;
 	}
 
@@ -25,8 +30,9 @@ function queueEditorScenePreview(state, queues) {
 }
 
 export function renderSceneEditor({ sceneEditorSection, sceneEditorContainer, state, queues, actions }) {
-	const scene = (state.currentStatus?.scenes ?? []).find((entry) => entry.id === state.editingSceneId);
-	sceneEditorContainer.replaceChildren();
+	const scenes = state.currentStatus && state.currentStatus.scenes ? state.currentStatus.scenes : [];
+	const scene = scenes.find((entry) => entry.id === state.editingSceneId);
+	replaceNodeChildren(sceneEditorContainer, []);
 
 	if (!scene || !state.editingSceneDraft) {
 		sceneEditorSection.hidden = true;
@@ -187,6 +193,70 @@ export function renderSceneEditor({ sceneEditorSection, sceneEditorContainer, st
 	editor.append(editorHeader, fieldGrid);
 	sceneEditorContainer.append(editor);
 	let isDraggingHueWheel = false;
+	let activeTouchId = null;
+	let fallbackListenersAttached = false;
+
+	function updateHueFromPointerEvent(event) {
+		actions.onUpdateEditingSceneDraft(updateSceneDraftFromWheel(state.editingSceneDraft, event, hueWheel));
+		updateEditorDisplay();
+		queueEditorScenePreview(state, queues);
+	}
+
+	function handleFallbackMouseMove(event) {
+		if (!isDraggingHueWheel) {
+			return;
+		}
+
+		updateHueFromPointerEvent(event);
+	}
+
+	function handleFallbackTouchMove(event) {
+		if (!isDraggingHueWheel) {
+			return;
+		}
+
+		// TouchList iteration is not consistently iterable on older Safari builds.
+		for (let index = 0; index < event.touches.length; index += 1) {
+			const touch = event.touches[index];
+			if (touch.identifier === activeTouchId) {
+				event.preventDefault();
+				updateHueFromPointerEvent(touch);
+				return;
+			}
+		}
+	}
+
+	function attachFallbackDragListeners() {
+		if (fallbackListenersAttached) {
+			return;
+		}
+
+		fallbackListenersAttached = true;
+		window.addEventListener("mousemove", handleFallbackMouseMove);
+		window.addEventListener("mouseup", endHueDrag);
+		window.addEventListener("touchmove", handleFallbackTouchMove, { passive: false });
+		window.addEventListener("touchend", endHueDrag);
+		window.addEventListener("touchcancel", endHueDrag);
+	}
+
+	function detachFallbackDragListeners() {
+		if (!fallbackListenersAttached) {
+			return;
+		}
+
+		fallbackListenersAttached = false;
+		window.removeEventListener("mousemove", handleFallbackMouseMove);
+		window.removeEventListener("mouseup", endHueDrag);
+		window.removeEventListener("touchmove", handleFallbackTouchMove);
+		window.removeEventListener("touchend", endHueDrag);
+		window.removeEventListener("touchcancel", endHueDrag);
+	}
+
+	function endHueDrag() {
+		isDraggingHueWheel = false;
+		activeTouchId = null;
+		detachFallbackDragListeners();
+	}
 
 	function updateEditorDisplay() {
 		const isBusy = state.isSubmitting;
@@ -312,32 +382,45 @@ export function renderSceneEditor({ sceneEditorSection, sceneEditorContainer, st
 		queueEditorScenePreview(state, queues);
 	});
 
-	hueWheel.addEventListener("pointerdown", (event) => {
-		event.preventDefault();
-		isDraggingHueWheel = true;
-		hueWheel.setPointerCapture(event.pointerId);
-		actions.onUpdateEditingSceneDraft(updateSceneDraftFromWheel(state.editingSceneDraft, event, hueWheel));
-		updateEditorDisplay();
-		queueEditorScenePreview(state, queues);
-	});
+	if (window.PointerEvent) {
+		hueWheel.addEventListener("pointerdown", (event) => {
+			event.preventDefault();
+			isDraggingHueWheel = true;
+			hueWheel.setPointerCapture(event.pointerId);
+			updateHueFromPointerEvent(event);
+		});
 
-	hueWheel.addEventListener("pointermove", (event) => {
-		if (!isDraggingHueWheel) {
-			return;
-		}
+		hueWheel.addEventListener("pointermove", (event) => {
+			if (!isDraggingHueWheel) {
+				return;
+			}
 
-		actions.onUpdateEditingSceneDraft(updateSceneDraftFromWheel(state.editingSceneDraft, event, hueWheel));
-		updateEditorDisplay();
-		queueEditorScenePreview(state, queues);
-	});
+			updateHueFromPointerEvent(event);
+		});
 
-	hueWheel.addEventListener("pointerup", () => {
-		isDraggingHueWheel = false;
-	});
+		hueWheel.addEventListener("pointerup", endHueDrag);
+		hueWheel.addEventListener("lostpointercapture", endHueDrag);
+	} else {
+		// Older iOS Safari lacks Pointer Events, so keep the hue wheel usable with touch/mouse fallback.
+		hueWheel.addEventListener("mousedown", (event) => {
+			event.preventDefault();
+			isDraggingHueWheel = true;
+			attachFallbackDragListeners();
+			updateHueFromPointerEvent(event);
+		});
 
-	hueWheel.addEventListener("lostpointercapture", () => {
-		isDraggingHueWheel = false;
-	});
+		hueWheel.addEventListener("touchstart", (event) => {
+			if (!event.touches.length) {
+				return;
+			}
+
+			event.preventDefault();
+			isDraggingHueWheel = true;
+			activeTouchId = event.touches[0].identifier;
+			attachFallbackDragListeners();
+			updateHueFromPointerEvent(event.touches[0]);
+		}, { passive: false });
+	}
 
 	cancelButton.addEventListener("click", () => {
 		actions.onClearEditingScene();

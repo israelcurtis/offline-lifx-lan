@@ -155,6 +155,24 @@ Current editor behavior:
 - non-edited scene cards are dimmed and disabled while editing
 - on mobile widths, opening a scene editor scrolls to the editor section
 
+## Browser compatibility
+
+The frontend is primarily tuned for current desktop and mobile browsers, but it now includes a
+small compatibility layer so the app remains operational on older Safari builds such as iOS 12
+Safari on older iPads.
+
+This support is intentionally limited in scope:
+
+- scene triggering should work
+- per-device and subnet target enable/disable controls should work
+- status loading and basic slider operation should work
+
+This support is not intended to provide full UI parity on those older browsers:
+
+- slider interaction may feel rougher
+- some editor visuals, especially the hue wheel, may degrade or fail to render
+- old-browser accommodations are kept isolated and minimal on purpose
+
 ## Polling and state behavior
 
 The app uses a mixed optimistic + reconciled status model:

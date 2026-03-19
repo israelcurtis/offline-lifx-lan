@@ -1,3 +1,4 @@
+import { replaceNodeChildren } from "../lib/dom-utils.js";
 import { getStateLabel, getStateSwatchColor } from "../lib/light-model.js";
 
 function isLightEnabled(light) {
@@ -43,10 +44,11 @@ function createLightCard() {
 	const targetingPill = document.createElement("button");
 	targetingPill.type = "button";
 	targetingPill.className = "pill pill-toggle";
-	targetingPill.addEventListener("pointerenter", () => {
+	// Pointer enter/leave is patchy on older iPad Safari, so prefer mouse hover here.
+	targetingPill.addEventListener("mouseenter", () => {
 		targetingPill.classList.add("is-hovered");
 	});
-	targetingPill.addEventListener("pointerleave", () => {
+	targetingPill.addEventListener("mouseleave", () => {
 		targetingPill.classList.remove("is-hovered");
 	});
 	targetingPill.addEventListener("blur", () => {
@@ -95,29 +97,29 @@ function updateLightCard(card, light, state, actions) {
 		swatch.setAttribute("aria-label", "Bulb is on");
 	}
 	title.textContent = light.label;
-	if (light.capabilities?.color === true) {
+	if (light.capabilities && light.capabilities.color === true) {
 		capabilityMeta.hidden = false;
 		capabilityMeta.dataset.capability = "rgb";
-		capabilityLabel.replaceChildren();
+		replaceNodeChildren(capabilityLabel, []);
 		for (const [letter, className] of [["R", "rgb-r"], ["G", "rgb-g"], ["B", "rgb-b"]]) {
 			const letterSpan = document.createElement("span");
 			letterSpan.className = `light-capability-letter ${className}`;
 			letterSpan.textContent = letter;
-			capabilityLabel.append(letterSpan);
+			capabilityLabel.appendChild(letterSpan);
 		}
 		capabilityMeta.title = "RGB-capable bulb";
 		capabilityMeta.setAttribute("aria-label", "RGB-capable bulb");
-	} else if (light.capabilities?.color === false) {
+	} else if (light.capabilities && light.capabilities.color === false) {
 		capabilityMeta.hidden = false;
 		capabilityMeta.dataset.capability = "white";
-		capabilityLabel.replaceChildren();
+		replaceNodeChildren(capabilityLabel, []);
 		capabilityLabel.textContent = "WHT";
 		capabilityMeta.title = "White-only bulb";
 		capabilityMeta.setAttribute("aria-label", "White-only bulb");
 	} else {
 		capabilityMeta.hidden = true;
 		capabilityMeta.dataset.capability = "";
-		capabilityLabel.replaceChildren();
+		replaceNodeChildren(capabilityLabel, []);
 		capabilityMeta.removeAttribute("title");
 		capabilityMeta.removeAttribute("aria-label");
 	}
@@ -148,7 +150,7 @@ function updateLightCard(card, light, state, actions) {
 	if (targetingIcon.getAttribute("src") !== targetingIconSrc) {
 		targetingIcon.src = targetingIconSrc;
 	}
-	targetingPill.disabled = isSavingTargetState || !state.currentStatus?.manualTargetingEnabled;
+	targetingPill.disabled = isSavingTargetState || !(state.currentStatus && state.currentStatus.manualTargetingEnabled);
 	if (targetingPill.disabled) {
 		targetingPill.classList.remove("is-hovered");
 	}
@@ -156,7 +158,7 @@ function updateLightCard(card, light, state, actions) {
 		"aria-label",
 		enabled ? `Disable ${light.label}` : `Enable ${light.label}`
 	);
-	targetingPill.onclick = state.currentStatus?.manualTargetingEnabled ? () => actions.onToggleTarget(light.id) : null;
+	targetingPill.onclick = state.currentStatus && state.currentStatus.manualTargetingEnabled ? () => actions.onToggleTarget(light.id) : null;
 }
 
 function createDeviceGroupSection() {
@@ -215,8 +217,8 @@ function updateDeviceGroupSection(wrapper, group, groupLights, state, actions) {
 	enabledStat.textContent = `${group.enabledCount} enabled`;
 	enableButton.dataset.addressGroup = group.key;
 	disableButton.dataset.addressGroup = group.key;
-	enableButton.disabled = state.isSavingTargetState || !state.currentStatus?.manualTargetingEnabled;
-	disableButton.disabled = state.isSavingTargetState || !state.currentStatus?.manualTargetingEnabled;
+	enableButton.disabled = state.isSavingTargetState || !(state.currentStatus && state.currentStatus.manualTargetingEnabled);
+	disableButton.disabled = state.isSavingTargetState || !(state.currentStatus && state.currentStatus.manualTargetingEnabled);
 	enableButton.onclick = () => actions.onToggleAddressGroup(group.key, true);
 	disableButton.onclick = () => actions.onToggleAddressGroup(group.key, false);
 
@@ -224,15 +226,15 @@ function updateDeviceGroupSection(wrapper, group, groupLights, state, actions) {
 		[...grid.querySelectorAll(".light-card")].map((card) => [card.dataset.lightId, card])
 	);
 	const nextCards = groupLights.map((light) => {
-		const card = existingCardsById.get(light.id) ?? createLightCard();
+		const card = existingCardsById.get(light.id) || createLightCard();
 		updateLightCard(card, light, state, actions);
 		return card;
 	});
-	grid.replaceChildren(...nextCards);
+	replaceNodeChildren(grid, nextCards);
 }
 
 export function renderDeviceGrid({ lightGrid, state, actions }) {
-	const lights = state.currentStatus?.lights ?? [];
+	const lights = state.currentStatus && state.currentStatus.lights ? state.currentStatus.lights : [];
 	const groupedLights = lights.reduce((groups, light) => {
 		if (!groups.has(light.addressGroup)) {
 			groups.set(light.addressGroup, []);
@@ -244,14 +246,14 @@ export function renderDeviceGrid({ lightGrid, state, actions }) {
 	const existingGroupsByKey = new Map(
 		[...lightGrid.querySelectorAll(".device-group")].map((wrapper) => [wrapper.dataset.addressGroup, wrapper])
 	);
-	const nextGroups = (state.currentStatus?.addressGroups ?? []).map((group) => {
-		const wrapper = existingGroupsByKey.get(group.key) ?? createDeviceGroupSection();
-		const groupLights = (groupedLights.get(group.key) ?? [])
+	const nextGroups = (state.currentStatus && state.currentStatus.addressGroups ? state.currentStatus.addressGroups : []).map((group) => {
+		const wrapper = existingGroupsByKey.get(group.key) || createDeviceGroupSection();
+		const groupLights = (groupedLights.get(group.key) || [])
 			.slice()
 			.sort((left, right) => left.label.localeCompare(right.label));
 		updateDeviceGroupSection(wrapper, group, groupLights, state, actions);
 		return wrapper;
 	});
 
-	lightGrid.replaceChildren(...nextGroups);
+	replaceNodeChildren(lightGrid, nextGroups);
 }

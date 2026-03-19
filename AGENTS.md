@@ -419,6 +419,36 @@ Slider thumbs were deliberately styled to be:
 
 The filled track amount is intentionally visible.
 
+### Older Safari / iOS compatibility
+
+The browser UI has a small compatibility layer to keep the app operational on older Safari builds,
+including iOS 12 Safari on older iPads.
+
+Current intent:
+
+- operational support only for old Safari
+- preserve scene triggering and target enable/disable controls
+- do not chase full visual parity with current Safari/Chrome
+
+Current compatibility touchpoints:
+
+- `public/lib/dom-utils.js`
+- `public/app.js`
+- `public/ui/scene-editor.js`
+- `shared/domain.js`
+
+Important:
+
+- the compatibility code is intentionally commented so it can be removed later
+- prefer keeping these shims isolated instead of spreading old-browser conditionals everywhere
+- avoid adding more old-iOS-specific UI workarounds unless a control is operationally important
+
+Known acceptable degradation on old iOS Safari:
+
+- slider drag feel may be rougher than on modern devices
+- scene editor visuals such as the hue wheel may render imperfectly or not at all
+- editing is not currently treated as a critical old-device workflow
+
 ## API Surface
 
 Current routes are registered in `src/app-factory.js` and booted by `src/server.js`:
@@ -493,12 +523,7 @@ Be careful when renaming the actual folder:
 
 ## README / NOTES
 
-Before making major architectural changes, read:
-
-- `README.md`
-- `NOTES.md`
-
-`NOTES.md` is the fuller historical rationale document.
+Before making major architectural changes, consult `README.md` and get confirmation if proposed work would conflict with the documented intent
 
 This `AGENTS.md` should stay focused on instructions and operational context for future agent work.
 

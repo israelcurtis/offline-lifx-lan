@@ -52,9 +52,13 @@ export function createLiveCommandQueue({
 
 		try {
 			const result = await save(nextPayload);
-			onSuccess?.(result, nextPayload);
+			if (onSuccess) {
+				onSuccess(result, nextPayload);
+			}
 		} catch (error) {
-			onError?.(error, nextPayload);
+			if (onError) {
+				onError(error, nextPayload);
+			}
 		} finally {
 			requestInFlight = false;
 			if (pendingPayload != null) {

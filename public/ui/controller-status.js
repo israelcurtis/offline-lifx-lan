@@ -31,7 +31,7 @@ export function renderControllerStatus({
 	statusText.textContent = statusParts.join(" ");
 	targetedCount.textContent = `${payload.targetedCount} / ${payload.discoveredCount}`;
 	warningText.hidden = !payload.warning;
-	warningText.textContent = payload.warning ?? "";
+	warningText.textContent = payload.warning || "";
 
 	const brightnessAvailable = getActionableLightCount(payload.lights) > 0;
 	brightnessSlider.disabled = state.isSubmitting || !brightnessAvailable;
@@ -44,7 +44,7 @@ export function renderControllerStatus({
 	}
 
 	if (!state.isAdjustingLiveBrightness) {
-		const liveBrightnessPercent = payload.liveBrightnessPercent ?? 0;
+		const liveBrightnessPercent = payload.liveBrightnessPercent == null ? 0 : payload.liveBrightnessPercent;
 		brightnessSlider.value = String(liveBrightnessPercent);
 		brightnessValue.textContent = formatBrightnessLabel(payload.liveBrightnessPercent);
 		updateSliderProgress(brightnessSlider, brightnessSlider.value);

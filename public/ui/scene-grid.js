@@ -6,6 +6,7 @@ import {
 	sceneDescription,
 	sceneSettingsLabel
 } from "../lib/light-model.js";
+import { replaceNodeChildren } from "../lib/dom-utils.js";
 
 function createSceneCard(scene) {
 	const card = document.createElement("article");
@@ -47,10 +48,16 @@ function createSceneCard(scene) {
 }
 
 function getSceneCardState(scene, state) {
-	const isActive = state.currentStatus?.lastAction?.sceneId === scene.id;
+	const isActive = Boolean(
+		state.currentStatus
+		&& state.currentStatus.lastAction
+		&& state.currentStatus.lastAction.sceneId === scene.id
+	);
 	const isShowingFeedback = state.sceneFeedbackId === scene.id;
 	const isEditing = state.editingSceneId === scene.id;
-	const actionableTargetCount = state.currentStatus?.lights?.filter((light) => light.enabled !== false && light.status === "on").length ?? 0;
+	const actionableTargetCount = state.currentStatus && state.currentStatus.lights
+		? state.currentStatus.lights.filter((light) => light.enabled !== false && light.status === "on").length
+		: 0;
 	const isUnavailable = !state.editingSceneId && actionableTargetCount === 0;
 	const isDisabled = state.editingSceneId ? !isEditing : isUnavailable;
 	// Keep focus and disabled behavior explicit here so scene-card styling and interaction rules
@@ -101,7 +108,10 @@ function updateSceneCard(card, scene, state, actions) {
 		actions.onSetEditingScene(scene);
 	};
 	button.onclick = () => actions.onApplyScene(scene.id);
-	const buttonAppearance = getSceneButtonAppearance(scene, state.currentStatus?.defaultSceneKelvin);
+	const buttonAppearance = getSceneButtonAppearance(
+		scene,
+		state.currentStatus ? state.currentStatus.defaultSceneKelvin : undefined
+	);
 	const buttonRgb = buttonAppearance.rgb;
 	const buttonRingColor = "rgba(255, 255, 255, 0.58)";
 	const buttonForeground = getSceneButtonForeground(buttonRgb);
@@ -112,7 +122,7 @@ function updateSceneCard(card, scene, state, actions) {
 	button.style.setProperty("--scene-button-border", getSceneButtonBorder(scene, buttonRgb));
 	button.style.setProperty("--scene-icon-filter", getSceneIconFilter(buttonRgb));
 	if (isShowingFeedback) {
-		buttonLabel.textContent = state.sceneFeedbackLabel ?? "Applied";
+		buttonLabel.textContent = state.sceneFeedbackLabel == null ? "Applied" : state.sceneFeedbackLabel;
 		buttonLabel.hidden = false;
 		buttonIcon.hidden = true;
 	} else {
@@ -122,18 +132,21 @@ function updateSceneCard(card, scene, state, actions) {
 	button.dataset.sceneTriggerId = scene.id;
 	button.dataset.applied = String(isShowingFeedback);
 	button.setAttribute("aria-label", isActive ? `${scene.name} applied` : `Trigger ${scene.name}`);
-	button.style.setProperty("--scene-transition-ms", `${state.currentStatus?.transitionDurationMs ?? 1000}ms`);
+	button.style.setProperty(
+		"--scene-transition-ms",
+		`${state.currentStatus && state.currentStatus.transitionDurationMs != null ? state.currentStatus.transitionDurationMs : 1000}ms`
+	);
 	button.disabled = state.isSubmitting || isDisabled;
 }
 
 export function renderSceneGrid({ sceneGrid, state, actions }) {
-	const scenes = state.currentStatus?.scenes ?? [];
+	const scenes = state.currentStatus && state.currentStatus.scenes ? state.currentStatus.scenes : [];
 	const existingCards = [...sceneGrid.querySelectorAll(".scene-card")];
 	const nextCards = scenes.map((scene, index) => {
-		const card = existingCards[index] ?? createSceneCard(scene);
+		const card = existingCards[index] || createSceneCard(scene);
 		updateSceneCard(card, scene, state, actions);
 		return card;
 	});
 
-	sceneGrid.replaceChildren(...nextCards);
+	replaceNodeChildren(sceneGrid, nextCards);
 }

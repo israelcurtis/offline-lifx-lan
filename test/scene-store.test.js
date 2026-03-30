@@ -3,6 +3,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
+import { appRootDir } from "../src/app-paths.js";
 import { loadScenesConfig, saveScenesConfig } from "../src/scene-store.js";
 
 const tempPaths = new Set();
@@ -48,10 +49,17 @@ test("saveScenesConfig writes scenes and loadScenesConfig reads them back", () =
   assert.deepEqual(loadScenesConfig(), scenes);
 });
 
-test("loadScenesConfig throws when the file is missing", () => {
+test("loadScenesConfig bootstraps tracked default scenes when the file is missing", () => {
   process.env.SCENES_PATH = makeTempScenesPath();
+  const defaultScenes = JSON.parse(
+    fs.readFileSync(path.join(appRootDir, "config", "scenes.json"), "utf8")
+  );
 
-  assert.throws(() => loadScenesConfig(), /Scene configuration file not found/);
+  assert.deepEqual(loadScenesConfig(), defaultScenes);
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(process.env.SCENES_PATH, "utf8")),
+    defaultScenes
+  );
 });
 
 test("loadScenesConfig throws when the JSON is invalid", () => {

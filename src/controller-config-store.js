@@ -1,20 +1,16 @@
-import path from "node:path";
-import process from "node:process";
-import { appRootDir, resolveFromAppRoot } from "./app-paths.js";
+import { bootstrapStateFile, getDefaultConfigFilePath, getStateFilePath } from "./app-state-paths.js";
 import { loadJsonFile, saveJsonFile } from "./json-store.js";
 
-const defaultControllerConfigPath = path.join(appRootDir, "config", "options.json");
-const DEFAULT_TRANSITION_DURATION_MS = 1000;
+const defaultControllerConfigPath = getDefaultConfigFilePath("options.json");
 const MIN_TRANSITION_DURATION_MS = 0;
 const MAX_TRANSITION_DURATION_MS = 5000;
-const DEFAULT_SCENE_KELVIN = 5500;
 const MIN_SCENE_KELVIN = 1500;
 const MAX_SCENE_KELVIN = 9000;
 
-function normalizeTransitionDuration(transitionDurationMs) {
+function normalizeTransitionDuration(transitionDurationMs, fallbackValue) {
   const numericValue = Number(transitionDurationMs);
   if (!Number.isFinite(numericValue)) {
-    return DEFAULT_TRANSITION_DURATION_MS;
+    return fallbackValue;
   }
 
   return Math.min(
@@ -23,10 +19,10 @@ function normalizeTransitionDuration(transitionDurationMs) {
   );
 }
 
-function normalizeSceneKelvin(defaultSceneKelvin) {
+function normalizeSceneKelvin(defaultSceneKelvin, fallbackValue) {
   const numericValue = Number(defaultSceneKelvin);
   if (!Number.isFinite(numericValue)) {
-    return DEFAULT_SCENE_KELVIN;
+    return fallbackValue;
   }
 
   return Math.min(
@@ -35,38 +31,72 @@ function normalizeSceneKelvin(defaultSceneKelvin) {
   );
 }
 
+function normalizeControllerConfig(parsed = {}, defaults) {
+  return {
+    transitionDurationMs: normalizeTransitionDuration(
+      parsed.transitionDurationMs,
+      defaults.transitionDurationMs
+    ),
+    defaultSceneKelvin: normalizeSceneKelvin(
+      parsed.defaultSceneKelvin,
+      defaults.defaultSceneKelvin
+    )
+  };
+}
+
+function loadDefaultControllerConfig() {
+  const parsed = loadJsonFile(defaultControllerConfigPath, {
+    onMissing: () => {
+      throw new Error(`Default controller config file not found at ${defaultControllerConfigPath}.`);
+    },
+    onInvalid: (error) => {
+      throw new Error(
+        `Invalid default controller config in ${defaultControllerConfigPath}: ${error.message}`
+      );
+    }
+  });
+
+  return normalizeControllerConfig(parsed, parsed);
+}
+
 export function getControllerConfigFilePath() {
-  return process.env.CONTROLLER_CONFIG_PATH
-    ? resolveFromAppRoot(process.env.CONTROLLER_CONFIG_PATH)
-    : defaultControllerConfigPath;
+  return getStateFilePath("options.json", "CONTROLLER_CONFIG_PATH");
 }
 
 export function loadControllerConfig() {
   const filePath = getControllerConfigFilePath();
+  const defaultConfig = loadDefaultControllerConfig();
+  bootstrapStateFile({
+    filePath,
+    defaultFilePath: defaultControllerConfigPath
+  });
   const parsed = loadJsonFile(filePath, {
-    onMissing: () => ({
-      transitionDurationMs: DEFAULT_TRANSITION_DURATION_MS,
-      defaultSceneKelvin: DEFAULT_SCENE_KELVIN
-    }),
+    onMissing: () => defaultConfig,
     onInvalid: (error) => {
       console.warn(`Invalid controller config JSON at ${filePath}: ${error.message}`);
-      return {};
+      return defaultConfig;
     }
   });
-  return {
-    transitionDurationMs: normalizeTransitionDuration(parsed.transitionDurationMs),
-    defaultSceneKelvin: normalizeSceneKelvin(parsed.defaultSceneKelvin)
-  };
+  return normalizeControllerConfig(parsed, defaultConfig);
 }
 
 export function saveControllerConfig({
-  transitionDurationMs = DEFAULT_TRANSITION_DURATION_MS,
-  defaultSceneKelvin = DEFAULT_SCENE_KELVIN
-}) {
+  transitionDurationMs,
+  defaultSceneKelvin
+} = {}) {
   const filePath = getControllerConfigFilePath();
+  const defaultConfig = loadDefaultControllerConfig();
+  bootstrapStateFile({
+    filePath,
+    defaultFilePath: defaultControllerConfigPath
+  });
   const payload = {
-    transitionDurationMs: normalizeTransitionDuration(transitionDurationMs),
-    defaultSceneKelvin: normalizeSceneKelvin(defaultSceneKelvin)
+    transitionDurationMs: normalizeTransitionDuration(
+      transitionDurationMs ?? defaultConfig.transitionDurationMs
+    ),
+    defaultSceneKelvin: normalizeSceneKelvin(
+      defaultSceneKelvin ?? defaultConfig.defaultSceneKelvin
+    )
   };
 
   saveJsonFile(filePath, payload);
@@ -74,10 +104,8 @@ export function saveControllerConfig({
 }
 
 export {
-  DEFAULT_TRANSITION_DURATION_MS,
   MIN_TRANSITION_DURATION_MS,
   MAX_TRANSITION_DURATION_MS,
-  DEFAULT_SCENE_KELVIN,
   MIN_SCENE_KELVIN,
   MAX_SCENE_KELVIN
 };

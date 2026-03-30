@@ -1,15 +1,9 @@
-import path from "node:path";
-import process from "node:process";
-import { appRootDir, resolveFromAppRoot } from "./app-paths.js";
+import { getStateFilePath } from "./app-state-paths.js";
 import { buildKnownDevicesState, mergeKnownDeviceRecords, normalizeKnownDevices } from "./known-device-model.js";
 import { loadJsonFile, saveJsonFile } from "./json-store.js";
 
-const defaultKnownDevicesPath = path.join(appRootDir, "config", "known-devices.json");
-
 export function getKnownDevicesFilePath() {
-  return process.env.KNOWN_DEVICES_PATH
-    ? resolveFromAppRoot(process.env.KNOWN_DEVICES_PATH)
-    : defaultKnownDevicesPath;
+  return getStateFilePath("known-devices.json", "KNOWN_DEVICES_PATH");
 }
 
 export function loadKnownDevicesState() {

@@ -1,9 +1,9 @@
 #!/bin/sh
 set -eu
 
-DATA_DIR=/data
-SCENES_FILE=${SCENES_PATH:-$DATA_DIR/scenes.json}
-OPTIONS_FILE=${CONTROLLER_CONFIG_PATH:-$DATA_DIR/options.json}
+STATE_DIR=${APP_STATE_DIR:-/state}
+SCENES_FILE="$STATE_DIR/scenes.json"
+OPTIONS_FILE="$STATE_DIR/options.json"
 
 mkdir -p "$(dirname "$SCENES_FILE")" "$(dirname "$OPTIONS_FILE")"
 

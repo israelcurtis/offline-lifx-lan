@@ -41,7 +41,7 @@ Docker support in this repo is intended for Linux deployment targets on your LAN
 
 On macOS, keep using the existing Platypus wrapper instead of Docker.
 
-For the Linux container path, see [docs/deploy-linux-docker.md](/Users/israel/Github/offline-lifx-lan/docs/deploy-linux-docker.md). The container now keeps live Linux state in an untracked `data/` directory so `git pull` does not overwrite saved scenes, options, or discovered-device state. If the device does not have Compose, use [deploy-docker.sh](/Users/israel/Github/offline-lifx-lan/deploy-docker.sh).
+For the Linux container path, see [docs/deploy-linux-docker.md](/Users/israel/Github/offline-lifx-lan/docs/deploy-linux-docker.md). The app now treats `config/` as shipped defaults and `state/` as writable runtime state. In Docker, that same writable state is mounted from the host `state/` directory so `git pull` does not overwrite saved scenes, options, or discovered-device state. If the device does not have Compose, use [deploy-docker.sh](/Users/israel/Github/offline-lifx-lan/deploy-docker.sh).
 
 ## Development
 
@@ -83,13 +83,14 @@ Supported environment variables:
 | --- | --- | --- |
 | `PORT` | `3000` | HTTP port for the local UI |
 | `HOST` | `0.0.0.0` | Bind address for the local UI |
+| `APP_STATE_DIR` | `state` | Writable app state directory |
 | `DISCOVERY_WAIT_MS` | `4000` | Delay after manual LAN rescan before returning |
 | `LIFX_TARGET_LABELS` | empty | Optional fixed bulb-label filter |
 | `LIFX_TARGET_IDS` | empty | Optional fixed bulb-id filter |
 | `LIFX_TARGET_ADDRESSES` | empty | Optional fixed IP-address filter |
-| `SCENES_PATH` | `config/scenes.json` | Alternate scene definition file |
-| `CONTROLLER_CONFIG_PATH` | `config/options.json` | Alternate tracked options file |
-| `KNOWN_DEVICES_PATH` | `config/known-devices.json` | Alternate local device-state file |
+| `SCENES_PATH` | `state/scenes.json` | Alternate writable scenes file |
+| `CONTROLLER_CONFIG_PATH` | `state/options.json` | Alternate writable options file |
+| `KNOWN_DEVICES_PATH` | `state/known-devices.json` | Alternate writable device-state file |
 
 If any of the fixed `LIFX_TARGET_*` filters are set, manual enable/disable controls in the UI are treated as unavailable because targeting is then defined by environment configuration.
 
@@ -97,14 +98,18 @@ For Docker or another remote host, keep `HOST=0.0.0.0` so the service is reachab
 
 ## Persistent state
 
-Tracked controller options live in `config/options.json`.
+Shipped defaults live in `config/options.json` and `config/scenes.json`.
+
+Writable runtime state lives in `state/` by default.
+
+Tracked controller options live in `state/options.json`.
 
 Current keys:
 
 - `transitionDurationMs`
 - `defaultSceneKelvin`
 
-Per-machine device targeting state lives in `config/known-devices.json`, which is intentionally gitignored.
+Per-machine device targeting state lives in `state/known-devices.json`, which is intentionally gitignored.
 
 Current shape:
 
@@ -113,11 +118,13 @@ Current shape:
   - `enabled`
   - `color` when hardware capability has been discovered
 
-If `config/known-devices.json` does not exist yet, the app starts with empty local targeting state and creates the file after discovery/status sync adds known bulbs.
+On first startup, missing `state/scenes.json` and `state/options.json` are bootstrapped from `config/scenes.json` and `config/options.json`.
+
+If `state/known-devices.json` does not exist yet, the app starts with empty local targeting state and creates the file after discovery/status sync adds known bulbs.
 
 ## Scenes
 
-Scene definitions live in `config/scenes.json`.
+Editable scene definitions live in `state/scenes.json`.
 
 Each scene supports:
 
@@ -134,7 +141,7 @@ Notes:
 
 - Scene IDs are derived from scene names when editing through the UI.
 - Per-scene transition durations are not supported. Transition timing is global.
-- Missing scene Kelvin values are normalized from `config/options.json` `defaultSceneKelvin`.
+- Missing scene Kelvin values are normalized from `state/options.json` `defaultSceneKelvin`.
 - `Off` scenes still carry a Kelvin value so switching back to `White` mode starts from the global default.
 
 ## Browser UI

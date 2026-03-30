@@ -3,9 +3,8 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
+import { appRootDir } from "../src/app-paths.js";
 import {
-  DEFAULT_SCENE_KELVIN,
-  DEFAULT_TRANSITION_DURATION_MS,
   loadControllerConfig,
   saveControllerConfig
 } from "../src/controller-config-store.js";
@@ -32,13 +31,21 @@ function makeTempOptionsPath() {
   return path.join(tempDir, "options.json");
 }
 
+function loadRepoDefaultOptions() {
+  return JSON.parse(fs.readFileSync(path.join(appRootDir, "config", "options.json"), "utf8"));
+}
+
 test("loadControllerConfig returns both tracked defaults when the file does not exist", () => {
   process.env.CONTROLLER_CONFIG_PATH = makeTempOptionsPath();
+  const expectedDefaults = loadRepoDefaultOptions();
 
-  assert.deepEqual(loadControllerConfig(), {
-    transitionDurationMs: DEFAULT_TRANSITION_DURATION_MS,
-    defaultSceneKelvin: DEFAULT_SCENE_KELVIN
-  });
+  const loadedConfig = loadControllerConfig();
+
+  assert.deepEqual(loadedConfig, expectedDefaults);
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(process.env.CONTROLLER_CONFIG_PATH, "utf8")),
+    loadedConfig
+  );
 });
 
 test("saveControllerConfig persists transition duration and default scene kelvin", () => {
@@ -59,9 +66,7 @@ test("saveControllerConfig persists transition duration and default scene kelvin
 test("loadControllerConfig falls back to tracked defaults when the JSON is invalid", () => {
   process.env.CONTROLLER_CONFIG_PATH = makeTempOptionsPath();
   fs.writeFileSync(process.env.CONTROLLER_CONFIG_PATH, "{invalid json\n", "utf8");
+  const expectedDefaults = loadRepoDefaultOptions();
 
-  assert.deepEqual(loadControllerConfig(), {
-    transitionDurationMs: DEFAULT_TRANSITION_DURATION_MS,
-    defaultSceneKelvin: DEFAULT_SCENE_KELVIN
-  });
+  assert.deepEqual(loadControllerConfig(), expectedDefaults);
 });

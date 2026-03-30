@@ -6,9 +6,9 @@ CONTAINER_NAME=${CONTAINER_NAME:-offline-lifx-lan}
 HOST_BIND=${HOST_BIND:-0.0.0.0}
 PORT_BIND=${PORT_BIND:-3000}
 APP_ROOT=$(pwd)
-DATA_DIR=${DATA_DIR:-$APP_ROOT/data}
+STATE_DIR=${STATE_DIR:-$APP_ROOT/state}
 
-mkdir -p "$DATA_DIR"
+mkdir -p "$STATE_DIR"
 
 docker build -t "$IMAGE_NAME" .
 
@@ -22,8 +22,6 @@ docker run -d \
   --network host \
   -e HOST="$HOST_BIND" \
   -e PORT="$PORT_BIND" \
-  -e SCENES_PATH=/data/scenes.json \
-  -e CONTROLLER_CONFIG_PATH=/data/options.json \
-  -e KNOWN_DEVICES_PATH=/data/known-devices.json \
-  -v "$DATA_DIR:/data" \
+  -e APP_STATE_DIR=/state \
+  -v "$STATE_DIR:/state" \
   "$IMAGE_NAME"

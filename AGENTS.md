@@ -69,9 +69,12 @@ Important files:
 
 ### Config
 
-- scene definitions: `config/scenes.json`
-- tracked controller config: `config/options.json`
-- gitignored device targeting state: `config/known-devices.json`
+- shipped default scenes: `config/scenes.json`
+- shipped default controller config: `config/options.json`
+- writable runtime state dir: `state/`
+- writable scenes: `state/scenes.json`
+- writable controller config: `state/options.json`
+- writable device targeting state: `state/known-devices.json`
 
 ### Packaging helpers
 
@@ -129,8 +132,8 @@ This was necessary to support Platypus bundling and is also more robust for norm
 
 Do not revert back to cwd-relative path logic unless you understand the packaging implications.
 
-Non-absolute environment override paths such as `SCENES_PATH`, `CONTROLLER_CONFIG_PATH`, and
-`KNOWN_DEVICES_PATH` are resolved relative to the app root.
+Non-absolute environment override paths such as `APP_STATE_DIR`, `SCENES_PATH`,
+`CONTROLLER_CONFIG_PATH`, and `KNOWN_DEVICES_PATH` are resolved relative to the app root.
 
 Affected areas:
 
@@ -173,12 +176,12 @@ The current controller split is:
 
 Targeting is per-device only.
 
-Persistent keys in `config/options.json`:
+Persistent keys in `state/options.json`:
 
 - `transitionDurationMs`
 - `defaultSceneKelvin`
 
-Persistent keys in `config/known-devices.json`:
+Persistent keys in `state/known-devices.json`:
 
 - `devices`
   - `id`
@@ -199,7 +202,9 @@ Avoid reintroducing:
 
 ## Scene Model
 
-Scene definitions live in `config/scenes.json`.
+Editable scene definitions live in `state/scenes.json`.
+
+Repo-shipped defaults live in `config/scenes.json`.
 
 Current schema:
 
@@ -218,8 +223,8 @@ Current timing model:
 
 - one global transition duration
 - controlled by the UI
-- stored in `config/options.json` as `transitionDurationMs`
-- missing scene Kelvin values fall back to `config/options.json` `defaultSceneKelvin`
+- stored in `state/options.json` as `transitionDurationMs`
+- missing scene Kelvin values fall back to `state/options.json` `defaultSceneKelvin`
 
 ## Scene Transition Behavior
 

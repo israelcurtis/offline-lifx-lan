@@ -122,6 +122,8 @@ On first startup, missing `state/scenes.json` and `state/options.json` are boots
 
 If `state/known-devices.json` does not exist yet, the app starts with empty local targeting state and creates the file after discovery/status sync adds known bulbs.
 
+The shipped default files are authoritative. If `defaults/options.json` or `defaults/scenes.json` is missing or invalid, startup should fail rather than silently inventing fallback defaults.
+
 ## Scenes
 
 Editable scene definitions live in `state/scenes.json`.
@@ -152,6 +154,7 @@ The browser interface currently includes:
 - a standalone scene editor below the scene grid
 - live scene preview while dragging editor controls
 - `Brightness Override` and transition duration sliders in controller status
+- `Reset to Defaults` in controller status
 - `Restart Server` in controller status
 - `Rescan LAN` beside the `Devices` section header
 - subnet-grouped device lists
@@ -170,6 +173,7 @@ Current frontend behavior is split by role:
 Current editor behavior:
 
 - only one scene can be edited at a time
+- the active editor DOM is reused while editing the same scene so text focus and save interactions stay stable across app re-renders
 - the editor supports `Color`, `White`, and `Off` light modes
 - non-edited scene cards are dimmed and disabled while editing
 - on mobile widths, opening a scene editor scrolls to the editor section
@@ -282,6 +286,8 @@ Request body:
 
 Forces a fresh LAN discovery pass and returns the updated status payload.
 
+This is a normal rescan and is intentionally different from a full reset. It does not purge writable state files before discovery.
+
 ### `POST /api/targets`
 
 Replaces the locally persisted per-device targeting records used by the web UI.
@@ -344,6 +350,16 @@ Returns:
 
 - `ok`
 - `result`
+- `status`
+
+### `POST /api/reset`
+
+Purges writable runtime state, restores scenes/options from shipped defaults, clears persisted known-device targeting state, and performs a fresh LAN discovery rebuild before returning status.
+
+Response shape:
+
+- `ok`
+- `message`
 - `status`
 
 ### `POST /api/restart`

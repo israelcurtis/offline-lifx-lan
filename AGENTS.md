@@ -206,6 +206,9 @@ Editable scene definitions live in `state/scenes.json`.
 
 Repo-shipped defaults live in `defaults/scenes.json`.
 
+The shipped default files are authoritative and are used for first-run bootstrap and full reset behavior.
+Do not reintroduce silent hardcoded fallback defaults for scenes or controller options.
+
 Current schema:
 
 - `id`
@@ -396,6 +399,7 @@ Current important UI behavior:
 
 - scene cards are reused in place during polling; do not casually revert to full card re-creation or the icons will flicker again
 - only one scene can be edited at a time
+- the active scene editor DOM is reused while editing the same scene; do not revert to clearing/rebuilding the editor on every render or text focus and save interactions will break again
 - the editor is a standalone full-width panel below the scene grid, not inline inside a card
 - on mobile widths, opening the editor scrolls to it; on larger widths it does not
 - while editing, the active source scene card stays normal and all other scene cards are dimmed and disabled
@@ -407,6 +411,7 @@ Current important UI behavior:
 
 Current layout:
 
+- `Reset to Defaults` sits beside `Restart Server` in controller status
 - `Restart Server` stays in controller status
 - `Rescan LAN` sits beside the `Devices` section heading
 - controller metrics are:
@@ -467,7 +472,13 @@ Current routes are registered in `src/app-factory.js` and booted by `src/server.
 - `POST /api/address-groups`
 - `POST /api/transition-duration`
 - `POST /api/brightness`
+- `POST /api/reset`
 - `POST /api/restart`
+
+Important reset semantics:
+
+- `POST /api/discover` is a normal rescan and should not purge writable state
+- `POST /api/reset` purges writable state, restores scenes/options from shipped defaults, clears known-device state, and rebuilds discovery from a fresh controller start
 
 If API changes are made, update the README API section too.
 

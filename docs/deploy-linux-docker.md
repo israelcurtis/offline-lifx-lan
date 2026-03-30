@@ -96,10 +96,15 @@ When you change code on the Linux device:
 ./deploy-docker.sh
 ```
 
-When you only change tracked default files:
+When you intentionally want to change the shipped defaults for future bootstrap/reset behavior:
+
+- edit files in `defaults/`
+- redeploy with `./deploy-docker.sh`
+
+When you want to inspect or modify the live runtime state on that Linux device:
 
 - edit files in `state/`
-- restart the container
+- restart or redeploy the container
 
 ## Notes
 

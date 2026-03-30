@@ -1,6 +1,7 @@
 import express from "express";
 import path from "node:path";
 import { appRootDir } from "./app-paths.js";
+import { resetAppState } from "./app-state-reset.js";
 import { LifxController } from "./lifx-controller.js";
 import { deriveSceneId, normalizeScene, validateScenes } from "./domain-utils.js";
 import { saveScenesConfig } from "./scene-store.js";
@@ -193,6 +194,31 @@ export function createApp({
       setTimeout(() => {
         onRestart(RESTART_EXIT_CODE);
       }, 100);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/reset", async (_req, res, next) => {
+    try {
+      const nextState = resetAppState();
+      config.transitionDurationMs = nextState.controllerConfig.transitionDurationMs;
+      config.defaultSceneKelvin = nextState.controllerConfig.defaultSceneKelvin;
+      config.knownDevices = nextState.knownDevicesState.devices;
+      currentScenes = validateScenes(nextState.scenes, {
+        defaultSceneKelvin: config.defaultSceneKelvin
+      });
+      controller.resetState({
+        controllerConfig: nextState.controllerConfig,
+        knownDevices: nextState.knownDevicesState.devices
+      });
+      await controller.resetDiscovery();
+
+      res.json({
+        ok: true,
+        message: "Controller state reset to shipped defaults.",
+        status: controller.getStatusPayload(currentScenes)
+      });
     } catch (error) {
       next(error);
     }

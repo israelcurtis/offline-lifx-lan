@@ -7,6 +7,7 @@ export function createAppStore() {
 		isAdjustingTransitionDuration: false,
 		isAdjustingLiveBrightness: false,
 		isSavingTargetState: false,
+		isConfirmingReset: false,
 		editingSceneId: null,
 		editingSceneDraft: null,
 		hasLiveScenePreview: false,
@@ -82,6 +83,10 @@ export function createAppStore() {
 		},
 		setTargetSaveState(next) {
 			state.isSavingTargetState = next;
+			emit();
+		},
+		setResetConfirmation(next) {
+			state.isConfirmingReset = next;
 			emit();
 		},
 		setAdjustingTransitionDuration(next) {

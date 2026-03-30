@@ -282,10 +282,25 @@
 	color: var(--text);
 	background: rgba(255, 255, 255, 0.75);
 	cursor: pointer;
+	transition:
+		background-color 160ms ease,
+		border-color 160ms ease,
+		transform 160ms ease;
+}
+
+.ghost-button:hover:not(:disabled) {
+	background: rgba(255, 255, 255, 0.96);
+	border-color: rgba(31, 28, 24, 0.24);
+	transform: translateY(-1px);
 }
 
 .ghost-button[data-busy="true"] {
 	background: rgba(247, 178, 103, 0.26);
+}
+
+.ghost-button[data-confirming="true"] {
+	background: rgba(199, 79, 0, 0.14);
+	border-color: rgba(199, 79, 0, 0.35);
 }
 
 .scene-apply-button:hover:not(:disabled) {

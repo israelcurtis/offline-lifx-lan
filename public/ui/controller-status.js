@@ -7,6 +7,7 @@ export function renderControllerStatus({
 	warningText,
 	targetedCount,
 	discoverButton,
+	resetDefaultsButton,
 	restartButton,
 	activityText,
 	transitionDurationSlider,
@@ -53,7 +54,15 @@ export function renderControllerStatus({
 	activityText.hidden = !state.activeActivityMessage;
 	activityText.textContent = state.activeActivityMessage;
 	discoverButton.dataset.busy = String(state.isSubmitting && state.activeActivityKind === "discover");
+	resetDefaultsButton.dataset.busy = String(state.isSubmitting && state.activeActivityKind === "reset");
 	restartButton.dataset.busy = String(state.isSubmitting && state.activeActivityKind === "restart");
+	resetDefaultsButton.dataset.confirming = String(state.isConfirmingReset);
+	resetDefaultsButton.disabled = state.isSubmitting;
 	discoverButton.textContent = state.isSubmitting && state.activeActivityKind === "discover" ? "Rescanning..." : "Rescan LAN";
+	resetDefaultsButton.textContent = state.isSubmitting && state.activeActivityKind === "reset"
+		? "Resetting..."
+		: state.isConfirmingReset
+			? "Click Again to Reset"
+			: "Reset to Defaults";
 	restartButton.textContent = state.isSubmitting && state.activeActivityKind === "restart" ? "Restarting..." : "Restart Server";
 }

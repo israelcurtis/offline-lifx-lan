@@ -32,18 +32,23 @@ function queueEditorScenePreview(state, queues) {
 export function renderSceneEditor({ sceneEditorSection, sceneEditorContainer, state, queues, actions }) {
 	const scenes = state.currentStatus && state.currentStatus.scenes ? state.currentStatus.scenes : [];
 	const scene = scenes.find((entry) => entry.id === state.editingSceneId);
-	replaceNodeChildren(sceneEditorContainer, []);
+	const existingView = sceneEditorContainer.__sceneEditorView;
 
 	if (!scene || !state.editingSceneDraft) {
+		sceneEditorContainer.__sceneEditorView = null;
+		replaceNodeChildren(sceneEditorContainer, []);
 		sceneEditorSection.hidden = true;
 		return;
 	}
 
 	sceneEditorSection.hidden = false;
 
-	if (state.editingSceneId !== scene.id || !state.editingSceneDraft) {
+	if (existingView && existingView.sceneId === scene.id) {
+		existingView.update();
 		return;
 	}
+
+	replaceNodeChildren(sceneEditorContainer, []);
 
 	const editor = document.createElement("div");
 	editor.className = "scene-editor";
@@ -431,4 +436,8 @@ export function renderSceneEditor({ sceneEditorSection, sceneEditorContainer, st
 	});
 
 	updateEditorDisplay();
+	sceneEditorContainer.__sceneEditorView = {
+		sceneId: scene.id,
+		update: updateEditorDisplay
+	};
 }

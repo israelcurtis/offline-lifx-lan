@@ -186,6 +186,15 @@ export class LifxController extends EventEmitter {
     return savedConfig.transitionDurationMs;
   }
 
+  resetState({ controllerConfig, knownDevices }) {
+    this.config.transitionDurationMs = controllerConfig.transitionDurationMs;
+    this.config.defaultSceneKelvin = controllerConfig.defaultSceneKelvin;
+    this.config.knownDevices = knownDevices;
+    this.lastAction = null;
+    this.lightStateService.clear();
+    this.emit("update", { type: "state-reset" });
+  }
+
   async refreshDiscovery() {
     const latestSignature = getInterfaceSignature(listActiveLanInterfaces());
 
@@ -195,6 +204,13 @@ export class LifxController extends EventEmitter {
 
     await this.start();
     this.clientRegistry.restartDiscovery();
+    await delay(this.config.discoveryWaitMs);
+    await this.refreshDiscoveredMetadata();
+  }
+
+  async resetDiscovery() {
+    this.stop();
+    await this.start();
     await delay(this.config.discoveryWaitMs);
     await this.refreshDiscoveredMetadata();
   }

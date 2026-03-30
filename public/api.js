@@ -89,6 +89,10 @@ export async function restartServer() {
 	return fetchJson("/api/restart", { method: "POST" });
 }
 
+export async function resetToDefaults() {
+	return fetchJson("/api/reset", { method: "POST" });
+}
+
 export async function waitForServerReady(timeoutMs = 30000) {
 	const startedAt = Date.now();
 

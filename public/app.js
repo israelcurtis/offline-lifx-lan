@@ -2,6 +2,7 @@ import {
 	applyScene,
 	discoverLan,
 	loadStatus,
+	resetToDefaults,
 	restartServer,
 	saveAddressGroupState,
 	saveLiveBrightness,
@@ -32,6 +33,7 @@ const LIVE_BRIGHTNESS_REFRESH_DELAY_MS = 300;
 const LIVE_SCENE_PREVIEW_DISPATCH_INTERVAL_MS = 100;
 const LIVE_SCENE_PREVIEW_REFRESH_DELAY_MS = 400;
 const STATUS_POLL_INTERVAL_MS = 3000;
+const RESET_CONFIRMATION_TIMEOUT_MS = 5000;
 
 const elements = {
 	statusText: document.querySelector("#status-text"),
@@ -42,6 +44,7 @@ const elements = {
 	sceneEditorContainer: document.querySelector("#scene-editor-container"),
 	lightGrid: document.querySelector("#light-grid"),
 	discoverButton: document.querySelector("#discover-button"),
+	resetDefaultsButton: document.querySelector("#reset-defaults-button"),
 	restartButton: document.querySelector("#restart-button"),
 	activityText: document.querySelector("#activity-text"),
 	transitionDurationSlider: document.querySelector("#transition-duration-slider"),
@@ -52,6 +55,28 @@ const elements = {
 
 const store = createAppStore();
 const state = store.getState();
+let resetConfirmationTimer = null;
+
+function clearResetConfirmation() {
+	if (resetConfirmationTimer) {
+		clearTimeout(resetConfirmationTimer);
+		resetConfirmationTimer = null;
+	}
+	store.setResetConfirmation(false);
+}
+
+function armResetConfirmation() {
+	clearResetConfirmation();
+	store.setResetConfirmation(true);
+	store.setActivity("Click \"Reset to Defaults\" again within 5 seconds to purge live state and rescan the LAN.", {
+		kind: "reset"
+	});
+	resetConfirmationTimer = setTimeout(() => {
+		resetConfirmationTimer = null;
+		store.setResetConfirmation(false);
+		store.setActivity("");
+	}, RESET_CONFIRMATION_TIMEOUT_MS);
+}
 
 function showError(error) {
 	elements.statusText.textContent = error instanceof Error ? error.message : String(error);
@@ -342,6 +367,34 @@ elements.restartButton.addEventListener("click", async () => {
 		showError(error);
 		store.setActivity("");
 	} finally {
+		store.setSubmitting(false);
+	}
+});
+
+elements.resetDefaultsButton.addEventListener("click", async () => {
+	if (!state.isConfirmingReset) {
+		armResetConfirmation();
+		return;
+	}
+
+	try {
+		clearResetConfirmation();
+		store.setActivity("Resetting live state to shipped defaults and rescanning the LAN...", { kind: "reset" });
+		store.setSubmitting(true);
+		closeSceneEditor({ scheduleRefresh: false });
+		liveBrightnessQueue.clearPending();
+		scenePreviewQueue.clearPending();
+		const payload = await resetToDefaults();
+		store.setStatus(payload.status);
+		store.setActivity(
+			`Reset complete. ${payload.status.onlineCount} bulb(s) online across ${payload.status.addressGroups.length} subnet group(s).`,
+			{ kind: "success", autoClearMs: 5000 }
+		);
+	} catch (error) {
+		showError(error);
+		store.setActivity("");
+	} finally {
+		store.setResetConfirmation(false);
 		store.setSubmitting(false);
 	}
 });

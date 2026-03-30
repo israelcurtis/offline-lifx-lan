@@ -3,16 +3,31 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
+import { appRootDir } from "../src/app-paths.js";
 import { createApp } from "../src/app-factory.js";
 
 const tempPaths = new Set();
 const originalScenesPath = process.env.SCENES_PATH;
+const originalControllerConfigPath = process.env.CONTROLLER_CONFIG_PATH;
+const originalKnownDevicesPath = process.env.KNOWN_DEVICES_PATH;
 
 afterEach(async () => {
   if (originalScenesPath === undefined) {
     delete process.env.SCENES_PATH;
   } else {
     process.env.SCENES_PATH = originalScenesPath;
+  }
+
+  if (originalControllerConfigPath === undefined) {
+    delete process.env.CONTROLLER_CONFIG_PATH;
+  } else {
+    process.env.CONTROLLER_CONFIG_PATH = originalControllerConfigPath;
+  }
+
+  if (originalKnownDevicesPath === undefined) {
+    delete process.env.KNOWN_DEVICES_PATH;
+  } else {
+    process.env.KNOWN_DEVICES_PATH = originalKnownDevicesPath;
   }
 
   for (const targetPath of tempPaths) {
@@ -25,6 +40,18 @@ function makeTempScenesPath() {
   const tempDir = fs.mkdtempSync(path.join(tmpdir(), "offline-lifx-lan-app-factory-test-"));
   tempPaths.add(tempDir);
   return path.join(tempDir, "scenes.json");
+}
+
+function makeTempOptionsPath() {
+  const tempDir = fs.mkdtempSync(path.join(tmpdir(), "offline-lifx-lan-app-factory-options-test-"));
+  tempPaths.add(tempDir);
+  return path.join(tempDir, "options.json");
+}
+
+function makeTempKnownDevicesPath() {
+  const tempDir = fs.mkdtempSync(path.join(tmpdir(), "offline-lifx-lan-app-factory-known-devices-test-"));
+  tempPaths.add(tempDir);
+  return path.join(tempDir, "known-devices.json");
 }
 
 function createMockResponse(finish) {
@@ -164,6 +191,17 @@ function buildTestApp({ controllerOverrides = {}, configOverrides = {}, scenes }
       this.previewScenes.push(scene);
       return { ok: true };
     },
+    async refreshDiscovery() {
+      this.refreshDiscoveryCalls = (this.refreshDiscoveryCalls ?? 0) + 1;
+    },
+    async resetDiscovery() {
+      this.resetDiscoveryCalls = (this.resetDiscoveryCalls ?? 0) + 1;
+    },
+    resetState({ controllerConfig, knownDevices }) {
+      this.knownDevices = knownDevices;
+      this.resetStateCalls = this.resetStateCalls ?? [];
+      this.resetStateCalls.push({ controllerConfig, knownDevices });
+    },
     setDeviceStates({ devices }) {
       this.knownDevices = devices;
     },
@@ -301,4 +339,78 @@ test("PUT /api/scenes/:sceneId persists scenes through the factory route", async
   const savedScenes = JSON.parse(fs.readFileSync(process.env.SCENES_PATH, "utf8"));
   assert.equal(savedScenes[0].id, "deep-focus");
   assert.equal(savedScenes[0].name, "Deep Focus");
+});
+
+test("POST /api/reset restores writable state from shipped defaults and rescans discovery", async () => {
+  process.env.SCENES_PATH = makeTempScenesPath();
+  process.env.CONTROLLER_CONFIG_PATH = makeTempOptionsPath();
+  process.env.KNOWN_DEVICES_PATH = makeTempKnownDevicesPath();
+
+  fs.writeFileSync(
+    process.env.SCENES_PATH,
+    `${JSON.stringify([
+      {
+        id: "custom",
+        name: "Custom",
+        description: "Overridden",
+        power: "on",
+        hue: 12,
+        saturation: 0.2,
+        brightness: 0.3,
+        kelvin: 3200
+      }
+    ], null, 2)}\n`,
+    "utf8"
+  );
+  fs.writeFileSync(
+    process.env.CONTROLLER_CONFIG_PATH,
+    `${JSON.stringify({
+      transitionDurationMs: 300,
+      defaultSceneKelvin: 6500
+    }, null, 2)}\n`,
+    "utf8"
+  );
+  fs.writeFileSync(
+    process.env.KNOWN_DEVICES_PATH,
+    `${JSON.stringify({
+      devices: [{ id: "a", enabled: false, color: true }]
+    }, null, 2)}\n`,
+    "utf8"
+  );
+
+  const defaultScenes = JSON.parse(
+    fs.readFileSync(path.join(appRootDir, "defaults", "scenes.json"), "utf8")
+  );
+  const defaultOptions = JSON.parse(
+    fs.readFileSync(path.join(appRootDir, "defaults", "options.json"), "utf8")
+  );
+
+  const { app, controller } = buildTestApp({
+    scenes: defaultScenes,
+    configOverrides: {
+      knownDevices: [{ id: "a", enabled: false, color: true }],
+      transitionDurationMs: 300,
+      defaultSceneKelvin: 6500
+    }
+  });
+
+  const response = await invokeApp(app, {
+    method: "POST",
+    url: "/api/reset"
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(controller.resetStateCalls[0].controllerConfig, defaultOptions);
+  assert.deepEqual(controller.resetStateCalls[0].knownDevices, []);
+  assert.equal(controller.resetDiscoveryCalls, 1);
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(process.env.SCENES_PATH, "utf8")),
+    defaultScenes
+  );
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(process.env.CONTROLLER_CONFIG_PATH, "utf8")),
+    defaultOptions
+  );
+  assert.equal(fs.existsSync(process.env.KNOWN_DEVICES_PATH), false);
+  assert.equal(response.body.status.scenes[0].id, defaultScenes[0].id);
 });

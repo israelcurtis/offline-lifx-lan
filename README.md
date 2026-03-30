@@ -35,6 +35,14 @@ npm start
 
 The server binds to `0.0.0.0` by default, so it remains reachable from your LAN and is compatible with containerized deployment. When running locally on your Mac, `http://localhost:3000` still works normally.
 
+## Docker
+
+Docker support in this repo is intended for Linux deployment targets on your LAN.
+
+On macOS, keep using the existing Platypus wrapper instead of Docker.
+
+For the Linux container path, see [docs/deploy-linux-docker.md](/Users/israel/Github/offline-lifx-lan/docs/deploy-linux-docker.md). The container now keeps live Linux state in an untracked `data/` directory so `git pull` does not overwrite saved scenes, options, or discovered-device state. If the device does not have Compose, use [deploy-docker.sh](/Users/israel/Github/offline-lifx-lan/deploy-docker.sh).
+
 ## Development
 
 ```sh

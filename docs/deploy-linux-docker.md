@@ -1,0 +1,110 @@
+# Linux Docker Deployment
+
+This deployment path is for a Linux device on your LAN.
+
+For macOS packaging, keep using the existing Platypus wrapper instead of Docker.
+
+## Why this layout
+
+- The image is built from source and runs `npm ci` inside the container, so host `node_modules` are not reused across architectures.
+- `network_mode: host` is used because the app relies on LAN discovery/control over UDP and may use multiple interfaces.
+- Runtime state is kept in a host-mounted `data/` directory, not in the repo `config/` directory.
+
+## Files used
+
+- [Dockerfile](/Users/israel/Github/offline-lifx-lan/Dockerfile)
+- [docker-compose.yml](/Users/israel/Github/offline-lifx-lan/docker-compose.yml)
+- [docker-entrypoint.sh](/Users/israel/Github/offline-lifx-lan/docker-entrypoint.sh)
+- [config/options.json](/Users/israel/Github/offline-lifx-lan/config/options.json)
+- [config/scenes.json](/Users/israel/Github/offline-lifx-lan/config/scenes.json)
+- `data/` on the Linux device for live state
+
+## Deploy with Docker Compose
+
+From the repo root on the Linux device:
+
+```sh
+docker compose up -d --build
+```
+
+This will:
+
+- build the image locally for that device's CPU architecture
+- start the controller with host networking
+- persist `data/` on disk next to the compose file
+
+After startup, open:
+
+```text
+http://<linux-device-ip>:3000
+```
+
+## Deploy with Plain Docker
+
+If the device does not have Compose, use the helper script from the repo root:
+
+```sh
+./deploy-docker.sh
+```
+
+This script:
+
+- builds the image locally
+- recreates the `offline-lifx-lan` container
+- keeps runtime state in `./data`
+- starts the container with host networking and restart policy enabled
+
+## Persistent state
+
+The compose file mounts:
+
+```text
+./data:/data
+```
+
+The entrypoint seeds `/data` from image defaults on first run if `scenes.json` or `options.json` is missing.
+
+That means:
+
+- tracked defaults from `config/options.json` and `config/scenes.json` are present on first boot
+- runtime state like `known-devices.json` is created and updated in `data/` on the host
+- recreating the container does not wipe your controller state
+- `git pull` does not overwrite the live Linux state because `data/` is outside the tracked config files
+
+## Manual image build
+
+If you do not want to use Compose or the helper script:
+
+```sh
+docker build -t offline-lifx-lan .
+docker run --rm --network host \
+  -e HOST=0.0.0.0 \
+  -e PORT=3000 \
+  -e SCENES_PATH=/data/scenes.json \
+  -e CONTROLLER_CONFIG_PATH=/data/options.json \
+  -e KNOWN_DEVICES_PATH=/data/known-devices.json \
+  -v "$(pwd)/data:/data" \
+  offline-lifx-lan
+```
+
+Use Compose or the helper script unless you have a reason not to manage the Docker commands yourself.
+
+## Updating
+
+When you change code on the Linux device:
+
+```sh
+./deploy-docker.sh
+```
+
+When you only change tracked config files:
+
+- edit files in `data/`
+- restart the container
+
+## Notes
+
+- `HOST` should stay `0.0.0.0` in the container.
+- `network_mode: host` is intended for Linux. Do not treat that as the Mac workflow.
+- If the target device is extremely constrained, the next optimization would be a smaller runtime image or a multi-stage build, but the current single-stage setup is the lowest-friction starting point.
+- The helper script accepts optional overrides such as `IMAGE_NAME`, `CONTAINER_NAME`, `DATA_DIR`, and `PORT_BIND`.

@@ -1,0 +1,15 @@
+services:
+  lifx:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      SCENES_PATH: /data/scenes.json
+      CONTROLLER_CONFIG_PATH: /data/options.json
+      KNOWN_DEVICES_PATH: /data/known-devices.json
+    volumes:
+      - ./data:/data

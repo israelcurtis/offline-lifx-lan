@@ -41,7 +41,7 @@ Docker support in this repo is intended for Linux deployment targets on your LAN
 
 On macOS, keep using the existing Platypus wrapper instead of Docker.
 
-For the Linux container path, see [docs/deploy-linux-docker.md](/Users/israel/Github/offline-lifx-lan/docs/deploy-linux-docker.md). The app now treats `config/` as shipped defaults and `state/` as writable runtime state. In Docker, that same writable state is mounted from the host `state/` directory so `git pull` does not overwrite saved scenes, options, or discovered-device state. If the device does not have Compose, use [deploy-docker.sh](/Users/israel/Github/offline-lifx-lan/deploy-docker.sh).
+For the Linux container path, see [docs/deploy-linux-docker.md](/Users/israel/Github/offline-lifx-lan/docs/deploy-linux-docker.md). The app now treats `defaults/` as shipped defaults and `state/` as writable runtime state. In Docker, that same writable state is mounted from the host `state/` directory so `git pull` does not overwrite saved scenes, options, or discovered-device state. If the device does not have Compose, use [deploy-docker.sh](/Users/israel/Github/offline-lifx-lan/deploy-docker.sh).
 
 ## Development
 
@@ -65,7 +65,7 @@ Recommended bundled files:
 
 - `src`
 - `public`
-- `config`
+- `defaults`
 - `node_modules`
 - `package.json`
 
@@ -98,7 +98,7 @@ For Docker or another remote host, keep `HOST=0.0.0.0` so the service is reachab
 
 ## Persistent state
 
-Shipped defaults live in `config/options.json` and `config/scenes.json`.
+Shipped defaults live in `defaults/options.json` and `defaults/scenes.json`.
 
 Writable runtime state lives in `state/` by default.
 
@@ -118,7 +118,7 @@ Current shape:
   - `enabled`
   - `color` when hardware capability has been discovered
 
-On first startup, missing `state/scenes.json` and `state/options.json` are bootstrapped from `config/scenes.json` and `config/options.json`.
+On first startup, missing `state/scenes.json` and `state/options.json` are bootstrapped from `defaults/scenes.json` and `defaults/options.json`.
 
 If `state/known-devices.json` does not exist yet, the app starts with empty local targeting state and creates the file after discovery/status sync adds known bulbs.
 

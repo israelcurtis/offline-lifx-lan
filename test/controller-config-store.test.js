@@ -32,7 +32,7 @@ function makeTempOptionsPath() {
 }
 
 function loadRepoDefaultOptions() {
-  return JSON.parse(fs.readFileSync(path.join(appRootDir, "config", "options.json"), "utf8"));
+  return JSON.parse(fs.readFileSync(path.join(appRootDir, "defaults", "options.json"), "utf8"));
 }
 
 test("loadControllerConfig returns both tracked defaults when the file does not exist", () => {

@@ -8,15 +8,15 @@ For macOS packaging, keep using the existing Platypus wrapper instead of Docker.
 
 - The image is built from source and runs `npm ci` inside the container, so host `node_modules` are not reused across architectures.
 - `network_mode: host` is used because the app relies on LAN discovery/control over UDP and may use multiple interfaces.
-- Runtime state is kept in a host-mounted `state/` directory, not in the repo `config/` directory.
+- Runtime state is kept in a host-mounted `state/` directory, not in the repo `defaults/` directory.
 
 ## Files used
 
 - [Dockerfile](/Users/israel/Github/offline-lifx-lan/Dockerfile)
 - [docker-compose.yml](/Users/israel/Github/offline-lifx-lan/docker-compose.yml)
 - [docker-entrypoint.sh](/Users/israel/Github/offline-lifx-lan/docker-entrypoint.sh)
-- [config/options.json](/Users/israel/Github/offline-lifx-lan/config/options.json)
-- [config/scenes.json](/Users/israel/Github/offline-lifx-lan/config/scenes.json)
+- [defaults/options.json](/Users/israel/Github/offline-lifx-lan/defaults/options.json)
+- [defaults/scenes.json](/Users/israel/Github/offline-lifx-lan/defaults/scenes.json)
 - `state/` as the normal non-container writable state location
 - `state/` on the Linux device for live state
 
@@ -67,7 +67,7 @@ The app uses `APP_STATE_DIR=/state` in the container, and the entrypoint seeds `
 
 That means:
 
-- tracked defaults from `config/options.json` and `config/scenes.json` are present on first boot
+- tracked defaults from `defaults/options.json` and `defaults/scenes.json` are present on first boot
 - runtime state like `known-devices.json` is created and updated in `state/` on the host
 - recreating the container does not wipe your controller state
 - `git pull` does not overwrite the live Linux state because `state/` is ignored and not treated as shipped defaults
@@ -96,7 +96,7 @@ When you change code on the Linux device:
 ./deploy-docker.sh
 ```
 
-When you only change tracked config files:
+When you only change tracked default files:
 
 - edit files in `state/`
 - restart the container

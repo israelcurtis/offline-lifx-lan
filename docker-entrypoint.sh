@@ -8,11 +8,11 @@ OPTIONS_FILE="$STATE_DIR/options.json"
 mkdir -p "$(dirname "$SCENES_FILE")" "$(dirname "$OPTIONS_FILE")"
 
 if [ ! -f "$SCENES_FILE" ]; then
-  cp /app/default-config/scenes.json "$SCENES_FILE"
+  cp /app/defaults/scenes.json "$SCENES_FILE"
 fi
 
 if [ ! -f "$OPTIONS_FILE" ]; then
-  cp /app/default-config/options.json "$OPTIONS_FILE"
+  cp /app/defaults/options.json "$OPTIONS_FILE"
 fi
 
 exec "$@"

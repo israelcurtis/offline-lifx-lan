@@ -69,8 +69,8 @@ Important files:
 
 ### Config
 
-- shipped default scenes: `config/scenes.json`
-- shipped default controller config: `config/options.json`
+- shipped default scenes: `defaults/scenes.json`
+- shipped default controller config: `defaults/options.json`
 - writable runtime state dir: `state/`
 - writable scenes: `state/scenes.json`
 - writable controller config: `state/options.json`
@@ -204,7 +204,7 @@ Avoid reintroducing:
 
 Editable scene definitions live in `state/scenes.json`.
 
-Repo-shipped defaults live in `config/scenes.json`.
+Repo-shipped defaults live in `defaults/scenes.json`.
 
 Current schema:
 
@@ -500,7 +500,7 @@ Expected bundled files for Platypus:
 
 - `src`
 - `public`
-- `config`
+- `defaults`
 - `node_modules`
 - `package.json`
 

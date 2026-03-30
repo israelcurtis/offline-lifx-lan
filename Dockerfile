@@ -13,12 +13,12 @@ RUN npm ci --omit=dev
 COPY src ./src
 COPY public ./public
 COPY shared ./shared
-COPY config/options.json ./default-config/options.json
-COPY config/scenes.json ./default-config/scenes.json
+COPY defaults/options.json ./defaults/options.json
+COPY defaults/scenes.json ./defaults/scenes.json
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
 
-RUN mkdir -p ./config
+RUN mkdir -p ./state
 
 EXPOSE 3000
 

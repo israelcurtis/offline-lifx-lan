@@ -3,7 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { appRootDir, resolveFromAppRoot } from "./app-paths.js";
 
-const defaultConfigDir = path.join(appRootDir, "config");
+const defaultConfigDir = path.join(appRootDir, "defaults");
 const defaultStateDir = path.join(appRootDir, "state");
 
 export function getDefaultsDir() {

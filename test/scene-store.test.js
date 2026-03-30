@@ -52,7 +52,7 @@ test("saveScenesConfig writes scenes and loadScenesConfig reads them back", () =
 test("loadScenesConfig bootstraps tracked default scenes when the file is missing", () => {
   process.env.SCENES_PATH = makeTempScenesPath();
   const defaultScenes = JSON.parse(
-    fs.readFileSync(path.join(appRootDir, "config", "scenes.json"), "utf8")
+    fs.readFileSync(path.join(appRootDir, "defaults", "scenes.json"), "utf8")
   );
 
   assert.deepEqual(loadScenesConfig(), defaultScenes);

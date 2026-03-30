@@ -11,6 +11,14 @@ function getAppRoot(rootDir = appRootDir) {
   return path.resolve(rootDir);
 }
 
+function getServerListenMessage(host, port) {
+  if (host === "0.0.0.0" || host === "::") {
+    return `LIFX LAN controller listening on ${host}:${port} (local access: http://localhost:${port})`;
+  }
+
+  return `LIFX LAN controller listening on http://${host}:${port}`;
+}
+
 export function createApp({
   controller,
   config,
@@ -231,7 +239,7 @@ export async function startServer({ config, controller, rootDir = appRootDir } =
   });
 
   server = app.listen(resolvedConfig.port, resolvedConfig.host, () => {
-    console.log(`LIFX LAN controller listening on http://localhost:${resolvedConfig.port}`);
+    console.log(getServerListenMessage(resolvedConfig.host, resolvedConfig.port));
   });
 
   resolvedController.start().catch((error) => {

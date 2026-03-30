@@ -33,6 +33,8 @@ npm start
 
 `npm start` runs the launcher wrapper, which is required for the in-app `Restart Server` button and the single-instance guard.
 
+The server binds to `0.0.0.0` by default, so it remains reachable from your LAN and is compatible with containerized deployment. When running locally on your Mac, `http://localhost:3000` still works normally.
+
 ## Development
 
 ```sh
@@ -82,6 +84,8 @@ Supported environment variables:
 | `KNOWN_DEVICES_PATH` | `config/known-devices.json` | Alternate local device-state file |
 
 If any of the fixed `LIFX_TARGET_*` filters are set, manual enable/disable controls in the UI are treated as unavailable because targeting is then defined by environment configuration.
+
+For Docker or another remote host, keep `HOST=0.0.0.0` so the service is reachable outside the container. You can still browse it locally at `http://localhost:3000` when the container port is published to your Mac.
 
 ## Persistent state
 

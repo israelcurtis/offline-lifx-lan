@@ -75,6 +75,7 @@ export function buildStatusPayload({
   scenes
 }) {
   const serverMemory = buildServerMemory(config);
+  const discoveredCount = Array.isArray(knownDevices) ? knownDevices.length : 0;
 
   return {
     ok: true,
@@ -90,7 +91,7 @@ export function buildStatusPayload({
     manualTargetingEnabled,
     interfaces,
     addressGroups: buildAddressGroups(allLights, enabledIds),
-    discoveredCount: allLights.length,
+    discoveredCount,
     onlineCount: allLights.filter((light) => light.status === "on").length,
     targetedCount: enabledIds.size,
     warning: buildWarningMessage(warning, serverMemory),

@@ -411,6 +411,7 @@ Current important UI behavior:
 
 Current layout:
 
+- `Server Memory` shows current Node process RSS
 - `Reset to Defaults` sits beside `Restart Server` in controller status
 - `Restart Server` stays in controller status
 - `Rescan LAN` sits beside the `Devices` section heading
@@ -418,6 +419,14 @@ Current layout:
   - `Brightness Override`
   - `Transition Duration`
   - `Enabled / Available`
+  - `Server Memory`
+
+Memory diagnostic intent:
+
+- expose Node process resident RAM, free system RAM, and total system RAM in the UI for long-running deployments
+- include free system RAM in the tooltip/detail
+- warn when RSS crosses `MEMORY_WARNING_RSS_MB`
+- treat this as a process diagnostic, not total system memory
 
 ### Sliders
 

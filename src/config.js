@@ -16,6 +16,7 @@ export function loadConfig() {
     port: Number.parseInt(process.env.PORT ?? "3000", 10),
     discoveryWaitMs: Number.parseInt(process.env.DISCOVERY_WAIT_MS ?? "4000", 10),
     host: process.env.HOST ?? "0.0.0.0",
+    memoryWarningRssMb: Number.parseInt(process.env.MEMORY_WARNING_RSS_MB ?? "160", 10),
     targetLabels: (process.env.LIFX_TARGET_LABELS ?? "")
       .split(",")
       .map((value) => value.trim())

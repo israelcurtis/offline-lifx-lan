@@ -275,7 +275,7 @@
 
 .ghost-button {
 	border: 1px solid var(--line);
-	border-radius: 999px;
+	border-radius: 20px;
 	padding: 11px 16px;
 	font: inherit;
 	font-weight: 700;

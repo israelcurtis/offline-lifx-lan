@@ -84,6 +84,7 @@ Supported environment variables:
 | `PORT` | `3000` | HTTP port for the local UI |
 | `HOST` | `0.0.0.0` | Bind address for the local UI |
 | `APP_STATE_DIR` | `state` | Writable app state directory |
+| `MEMORY_WARNING_RSS_MB` | `160` | RSS threshold for the server-memory warning |
 | `DISCOVERY_WAIT_MS` | `4000` | Delay after manual LAN rescan before returning |
 | `LIFX_TARGET_LABELS` | empty | Optional fixed bulb-label filter |
 | `LIFX_TARGET_IDS` | empty | Optional fixed bulb-id filter |
@@ -154,6 +155,7 @@ The browser interface currently includes:
 - a standalone scene editor below the scene grid
 - live scene preview while dragging editor controls
 - `Brightness Override` and transition duration sliders in controller status
+- a live `Server Memory` metric in controller status
 - `Reset to Defaults` in controller status
 - `Restart Server` in controller status
 - `Rescan LAN` beside the `Devices` section header
@@ -210,6 +212,17 @@ This is intentional. It keeps the UI responsive while still allowing correction 
 Implementation note:
 
 - the live cache and polling loop are owned by `src/light-state-service.js`
+
+## Server Memory Diagnostic
+
+The controller status panel shows current process RSS in MB.
+
+Current behavior:
+
+- the visible metric shows Node process resident RAM, free system RAM, and total system RAM
+- the tooltip includes current free system RAM and Node heap-used
+- the UI warning banner includes a memory warning when RSS crosses `MEMORY_WARNING_RSS_MB`
+- the default warning threshold is intentionally conservative for small Linux/OpenWrt devices and can be overridden by environment
 
 ## API
 

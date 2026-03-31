@@ -36,9 +36,9 @@ const STATUS_POLL_INTERVAL_MS = 3000;
 const RESET_CONFIRMATION_TIMEOUT_MS = 5000;
 
 const elements = {
-	statusText: document.querySelector("#status-text"),
 	warningText: document.querySelector("#warning-text"),
 	targetedCount: document.querySelector("#targeted-count"),
+	onlineCount: document.querySelector("#online-count"),
 	sceneGrid: document.querySelector("#scene-grid"),
 	sceneEditorSection: document.querySelector("#scene-editor-section"),
 	sceneEditorContainer: document.querySelector("#scene-editor-container"),
@@ -50,7 +50,8 @@ const elements = {
 	transitionDurationSlider: document.querySelector("#transition-duration-slider"),
 	transitionDurationValue: document.querySelector("#transition-duration-value"),
 	brightnessSlider: document.querySelector("#brightness-slider"),
-	brightnessValue: document.querySelector("#brightness-value")
+	brightnessValue: document.querySelector("#brightness-value"),
+	serverMemory: document.querySelector("#server-memory")
 };
 
 const store = createAppStore();

@@ -3,9 +3,9 @@ import { formatBrightnessLabel, formatDurationLabel } from "../lib/light-model.j
 import { updateSliderProgress } from "../lib/dom-utils.js";
 
 export function renderControllerStatus({
-	statusText,
 	warningText,
 	targetedCount,
+	onlineCount,
 	discoverButton,
 	resetDefaultsButton,
 	restartButton,
@@ -14,23 +14,25 @@ export function renderControllerStatus({
 	transitionDurationValue,
 	brightnessSlider,
 	brightnessValue,
+	serverMemory,
 	state
 }) {
 	const payload = state.currentStatus;
 	if (!payload) {
-		statusText.textContent = "Loading...";
+		targetedCount.textContent = "--";
+		onlineCount.textContent = "--";
 		return;
 	}
 
-	const statusParts = [];
-	statusParts.push(`${payload.onlineCount} of ${payload.discoveredCount} discovered bulbs online.`);
-	if (payload.lastAction) {
-		statusParts.push(
-			`Last scene: ${payload.lastAction.sceneName} at ${new Date(payload.lastAction.appliedAt).toLocaleTimeString()}.`
-		);
-	}
-	statusText.textContent = statusParts.join(" ");
 	targetedCount.textContent = `${payload.targetedCount} / ${payload.discoveredCount}`;
+	onlineCount.textContent = `${payload.onlineCount} / ${payload.discoveredCount}`;
+	serverMemory.textContent = payload.serverMemory
+		? `${payload.serverMemory.rssMb} / ${payload.serverMemory.freeSystemMb} / ${payload.serverMemory.totalSystemMb} MB`
+		: "--";
+	serverMemory.title = payload.serverMemory
+		? `Node process resident RAM: ${payload.serverMemory.rssMb} MB. System free RAM: ${payload.serverMemory.freeSystemMb} MB. Total system RAM: ${payload.serverMemory.totalSystemMb} MB. Heap used: ${payload.serverMemory.heapUsedMb} MB. Warning threshold: ${payload.serverMemory.warningThresholdMb} MB.`
+		: "";
+	serverMemory.dataset.pressure = payload.serverMemory ? payload.serverMemory.pressure : "normal";
 	warningText.hidden = !payload.warning;
 	warningText.textContent = payload.warning || "";
 

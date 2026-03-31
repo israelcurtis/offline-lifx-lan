@@ -29,12 +29,6 @@
 			<div class="status-header">
 				<div>
 					<p class="panel-label">Controller Status</p>
-					<p id="status-text">Loading...</p>
-					<p id="activity-text" class="activity-text" hidden></p>
-				</div>
-				<div class="status-actions">
-					<button id="reset-defaults-button" class="ghost-button">Reset to Defaults</button>
-					<button id="restart-button" class="ghost-button">Restart Server</button>
 				</div>
 			</div>
 			<div class="metrics">
@@ -56,6 +50,10 @@
 					<span class="metric-label">Enabled / Available</span>
 					<strong id="targeted-count">0</strong>
 				</div>
+				<div class="metric">
+					<span class="metric-label">Online / Discovered</span>
+					<strong id="online-count">0</strong>
+				</div>
 			</div>
 			<p id="warning-text" class="warning-text" hidden></p>
 		</section>
@@ -63,12 +61,26 @@
 			<div>
 				<h2>Devices</h2>
 			</div>
-			<div class="section-actions">
-				<button id="discover-button" class="ghost-button">Rescan LAN</button>
-			</div>
 		</section>
 		<section>
 			<div id="light-grid" class="light-grid"></div>
+		</section>
+		<section class="status-panel debug-panel">
+			<div class="status-header">
+				<div>
+					<p class="panel-label">Server Tools</p>
+					<p id="activity-text" class="activity-text" hidden></p>
+				</div>
+			</div>
+			<div class="debug-tools-row">
+				<div class="debug-tool debug-tool-memory">
+					<span class="metric-label">Server Memory In Use / Free / Total</span>
+					<strong id="server-memory">--</strong>
+				</div>
+				<button id="discover-button" class="ghost-button debug-tool-button">Rescan LAN</button>
+				<button id="reset-defaults-button" class="ghost-button debug-tool-button">Reset to Defaults</button>
+				<button id="restart-button" class="ghost-button debug-tool-button">Restart Server</button>
+			</div>
 		</section>
 	</main>
 	<script type="module" src="/app.js"></script>

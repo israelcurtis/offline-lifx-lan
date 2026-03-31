@@ -55,22 +55,6 @@ body {
 	color: var(--muted);
 }
 
-.status-panel {
-	margin: 28px 0 0;
-	padding: 20px 24px;
-	border: 1px solid var(--line);
-	border-radius: 22px;
-	background: var(--panel);
-	box-shadow: var(--shadow);
-	backdrop-filter: blur(14px);
-}
-
-.debug-panel {
-	margin-top: 28px;
-	background: rgba(250, 246, 240, 0.84);
-}
-
-.status-header,
 .section-header {
 	display: flex;
 	align-items: end;
@@ -119,7 +103,6 @@ body {
 		minmax(280px, 1fr)
 		repeat(3, max-content);
 	gap: 14px;
-	margin-top: 18px;
 	align-items: stretch;
 }
 
@@ -160,7 +143,6 @@ body {
 	flex-wrap: wrap;
 	gap: 10px;
 	align-items: stretch;
-	margin-top: 18px;
 }
 
 .debug-tool {
@@ -326,7 +308,7 @@ body {
 }
 
 .activity-text {
-	margin: 8px 0 0;
+	margin: 0 0 12px;
 	color: var(--accent);
 	font-weight: 700;
 }

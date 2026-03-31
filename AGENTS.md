@@ -419,6 +419,13 @@ Current layout:
   - `Online`
   - `Discovered`
 
+Inventory semantics:
+
+- `Discovered` reflects the persisted known-device inventory in `state/known-devices.json`
+- ordinary startup/background discovery can add newly seen bulbs but should not prune missing ones
+- explicit `Rescan LAN` rebuilds the known-device inventory from the current LAN results and can reduce `Discovered`
+- `Reset to Defaults` clears known devices entirely before a fresh discovery pass
+
 Memory diagnostic intent:
 
 - expose Node process resident RAM, free system RAM, and total system RAM in the UI for long-running deployments
@@ -485,6 +492,7 @@ Current routes are registered in `src/app-factory.js` and booted by `src/server.
 Important reset semantics:
 
 - `POST /api/discover` is a normal rescan and should not purge writable state
+- `POST /api/discover` should rebuild persisted known-device state from the current discovery results
 - `POST /api/reset` purges writable state, restores scenes/options from shipped defaults, clears known-device state, and rebuilds discovery from a fresh controller start
 
 If API changes are made, update the README API section too.

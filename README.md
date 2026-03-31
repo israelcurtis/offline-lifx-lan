@@ -163,6 +163,13 @@ The browser interface currently includes:
 - subnet-level `Enable All` / `Disable All` buttons
 - live device swatches and state readout
 
+Inventory semantics in the UI:
+
+- `Discovered` reflects the persisted known-device inventory in `state/known-devices.json`
+- normal startup and background polling do not prune missing bulbs from that inventory
+- `Rescan LAN` rebuilds the known-device inventory from current discovery results
+- `Reset to Defaults` clears known devices before rebuilding from fresh discovery
+
 Current frontend behavior is split by role:
 
 - state and optimistic UI behavior live in `public/state/app-store.js`
@@ -201,6 +208,7 @@ This support is not intended to provide full UI parity on those older browsers:
 The app uses a mixed optimistic + reconciled status model:
 
 - background polling runs every `3000ms`
+- background polling updates live light state and online/offline status only; it does not rewrite the persisted known-device inventory
 - scene applies, live editor preview, and brightness override update the in-memory state cache immediately
 - the UI therefore updates right away to the commanded target state
 - later polling reconciles the UI back to actual bulb-reported state if a bulb missed a command
@@ -297,7 +305,7 @@ Request body:
 
 Forces a fresh LAN discovery pass and returns the updated status payload.
 
-This is a normal rescan and is intentionally different from a full reset. It does not purge writable state files before discovery.
+This is intentionally different from a full reset. It does not touch scenes or controller options, but it does rebuild the persisted known-device inventory from the current discovery results. That means `Discovered` can go down after a rescan if previously known bulbs are no longer found.
 
 ### `POST /api/targets`
 

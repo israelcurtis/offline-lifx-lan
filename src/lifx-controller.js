@@ -131,6 +131,10 @@ export class LifxController extends EventEmitter {
     this.knownDeviceService.syncDiscoveredLights(this.getKnownLights());
   }
 
+  rebuildKnownLightStates() {
+    this.knownDeviceService.replaceWithDiscoveredLights(this.getKnownLights());
+  }
+
   async refreshKnownLightCapabilities() {
     await this.knownDeviceService.refreshCapabilities(this.getKnownLights());
   }
@@ -205,7 +209,8 @@ export class LifxController extends EventEmitter {
     await this.start();
     this.clientRegistry.restartDiscovery();
     await delay(this.config.discoveryWaitMs);
-    await this.refreshDiscoveredMetadata();
+    this.rebuildKnownLightStates();
+    await this.refreshKnownLightCapabilities();
   }
 
   async resetDiscovery() {

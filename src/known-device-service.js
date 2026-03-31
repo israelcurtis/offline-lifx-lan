@@ -56,6 +56,22 @@ export class KnownDeviceService {
     return this.persist({ devices: [...knownDevicesById.values()] });
   }
 
+  replaceWithDiscoveredLights(lights) {
+    if (this.hasFixedTargetSelector()) {
+      return null;
+    }
+
+    const previousDevicesById = createKnownDeviceLookup(this.getDevices());
+    const nextDevicesById = new Map();
+
+    for (const light of lights) {
+      const existingRecord = previousDevicesById.get(light.id) ?? { id: light.id, enabled: true };
+      nextDevicesById.set(light.id, existingRecord);
+    }
+
+    return this.persist({ devices: [...nextDevicesById.values()] });
+  }
+
   async refreshCapabilities(lights) {
     const knownDevicesById = createKnownDeviceLookup(this.getDevices());
     const lightsNeedingCapabilities = lights.filter((light) => knownDevicesById.get(light.id)?.color == null);

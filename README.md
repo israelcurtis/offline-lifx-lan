@@ -155,10 +155,8 @@ The browser interface currently includes:
 - a standalone scene editor below the scene grid
 - live scene preview while dragging editor controls
 - `Brightness Override` and transition duration sliders in controller status
-- a live `Server Memory` metric in controller status
-- `Reset to Defaults` in controller status
-- `Restart Server` in controller status
-- `Rescan LAN` beside the `Devices` section header
+- separate `Enabled`, `Online`, and `Discovered` controller metrics
+- a bottom `Server Tools` panel with `Server Memory`, `Rescan LAN`, `Reset to Defaults`, and `Restart Server`
 - subnet-grouped device lists
 - per-device icon-only enable/disable target toggle
 - per-device RGB / White capability indicator based on discovery-time hardware metadata

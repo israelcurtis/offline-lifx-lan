@@ -6,6 +6,7 @@ export function renderControllerStatus({
 	warningText,
 	targetedCount,
 	onlineCount,
+	discoveredCount,
 	discoverButton,
 	resetDefaultsButton,
 	restartButton,
@@ -21,11 +22,13 @@ export function renderControllerStatus({
 	if (!payload) {
 		targetedCount.textContent = "--";
 		onlineCount.textContent = "--";
+		discoveredCount.textContent = "--";
 		return;
 	}
 
-	targetedCount.textContent = `${payload.targetedCount} / ${payload.discoveredCount}`;
-	onlineCount.textContent = `${payload.onlineCount} / ${payload.discoveredCount}`;
+	targetedCount.textContent = String(payload.targetedCount);
+	onlineCount.textContent = String(payload.onlineCount);
+	discoveredCount.textContent = String(payload.discoveredCount);
 	serverMemory.textContent = payload.serverMemory
 		? `${payload.serverMemory.rssMb} / ${payload.serverMemory.freeSystemMb} / ${payload.serverMemory.totalSystemMb} MB`
 		: "--";

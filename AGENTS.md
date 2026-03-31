@@ -411,15 +411,13 @@ Current important UI behavior:
 
 Current layout:
 
-- `Server Memory` shows current Node process RSS
-- `Reset to Defaults` sits beside `Restart Server` in controller status
-- `Restart Server` stays in controller status
-- `Rescan LAN` sits beside the `Devices` section heading
+- `Rescan LAN`, `Reset to Defaults`, `Restart Server`, and `Server Memory` live in the bottom `Server Tools` panel
 - controller metrics are:
   - `Brightness Override`
   - `Transition Duration`
-  - `Enabled / Available`
-  - `Server Memory`
+  - `Enabled`
+  - `Online`
+  - `Discovered`
 
 Memory diagnostic intent:
 

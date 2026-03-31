@@ -114,9 +114,13 @@ body {
 
 .metrics {
 	display: grid;
-	grid-template-columns: repeat(4, minmax(0, 1fr));
+	grid-template-columns:
+		minmax(280px, 1fr)
+		minmax(280px, 1fr)
+		repeat(3, max-content);
 	gap: 14px;
 	margin-top: 18px;
+	align-items: stretch;
 }
 
 .metric,
@@ -128,6 +132,15 @@ body {
 
 .metric {
 	padding: 14px 16px;
+}
+
+.metric-wide {
+	min-width: 0;
+}
+
+.metric-count {
+	width: fit-content;
+	min-width: 140px;
 }
 
 .metric strong {
@@ -202,6 +215,33 @@ body {
 	display: flex;
 	flex-direction: column;
 	justify-content: space-between;
+}
+
+@media (max-width: 900px) {
+	.metrics {
+		grid-template-columns: repeat(6, minmax(0, 1fr));
+	}
+
+	.metric-wide {
+		grid-column: span 3;
+	}
+
+	.metric-count {
+		grid-column: span 2;
+		width: auto;
+		min-width: 0;
+	}
+}
+
+@media (max-width: 640px) {
+	.metrics {
+		grid-template-columns: repeat(1, minmax(0, 1fr));
+	}
+
+	.metric-wide,
+	.metric-count {
+		grid-column: span 1;
+	}
 }
 
 .transition-control-header {

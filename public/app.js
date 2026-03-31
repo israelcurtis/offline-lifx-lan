@@ -39,6 +39,7 @@ const elements = {
 	warningText: document.querySelector("#warning-text"),
 	targetedCount: document.querySelector("#targeted-count"),
 	onlineCount: document.querySelector("#online-count"),
+	discoveredCount: document.querySelector("#discovered-count"),
 	sceneGrid: document.querySelector("#scene-grid"),
 	sceneEditorSection: document.querySelector("#scene-editor-section"),
 	sceneEditorContainer: document.querySelector("#scene-editor-container"),

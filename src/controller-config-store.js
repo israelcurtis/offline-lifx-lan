@@ -92,10 +92,12 @@ export function saveControllerConfig({
   });
   const payload = {
     transitionDurationMs: normalizeTransitionDuration(
-      transitionDurationMs ?? defaultConfig.transitionDurationMs
+      transitionDurationMs ?? defaultConfig.transitionDurationMs,
+      defaultConfig.transitionDurationMs
     ),
     defaultSceneKelvin: normalizeSceneKelvin(
-      defaultSceneKelvin ?? defaultConfig.defaultSceneKelvin
+      defaultSceneKelvin ?? defaultConfig.defaultSceneKelvin,
+      defaultConfig.defaultSceneKelvin
     )
   };
 

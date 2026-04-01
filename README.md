@@ -117,7 +117,9 @@ Current shape:
 - `devices`
   - `id`
   - `enabled`
-  - `color` when hardware capability has been discovered
+  - `color` when hardware capability has been discovered (boolean, stored flat)
+
+At runtime, `color` is wrapped into a `capabilities: { color } | null` object by `getKnownDeviceRecord` before being included in API responses and the status payload. The file stores it as a plain boolean; the `capabilities` shape is a derived view and is not written to disk.
 
 On first startup, missing `state/scenes.json` and `state/options.json` are bootstrapped from `defaults/scenes.json` and `defaults/options.json`.
 
@@ -400,6 +402,7 @@ This route only restarts correctly when the app was started through `npm start` 
 
 Current backend entry and composition:
 
+- `src/launcher.js`
 - `src/server.js`
 - `src/app-factory.js`
 - `src/config.js`
@@ -422,6 +425,9 @@ Current backend support modules:
 - `src/scene-store.js`
 - `src/network-interfaces.js`
 - `src/app-paths.js`
+- `src/app-state-paths.js`
+- `src/app-state-reset.js`
+- `src/single-instance-lock.js`
 
 Shared pure domain helpers:
 

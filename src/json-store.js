@@ -20,7 +20,10 @@ export function loadJsonFile(filePath, { onMissing, onInvalid } = {}) {
 }
 
 export function saveJsonFile(filePath, payload) {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  const dir = path.dirname(filePath);
+  fs.mkdirSync(dir, { recursive: true });
+  const tmpPath = path.join(dir, `.${path.basename(filePath)}.tmp`);
+  fs.writeFileSync(tmpPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  fs.renameSync(tmpPath, filePath);
   return payload;
 }

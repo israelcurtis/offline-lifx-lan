@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "LIFX LAN Dev Server (watch mode)",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--watch", "src/server.js"],
+      "port": 3000
+    },
+    {
+      "name": "LIFX LAN Production Server",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["src/launcher.js"],
+      "port": 3000
+    }
+  ]
+}

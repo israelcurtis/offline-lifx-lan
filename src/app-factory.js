@@ -251,7 +251,12 @@ export async function startServer({ config, controller, rootDir = appRootDir } =
   let server;
   const shutdown = (exitCode = 0) => {
     resolvedController.stop();
+    const forceExitTimer = setTimeout(() => {
+      process.exit(exitCode);
+    }, 5000);
+    forceExitTimer.unref();
     server.close(() => {
+      clearTimeout(forceExitTimer);
       process.exit(exitCode);
     });
   };

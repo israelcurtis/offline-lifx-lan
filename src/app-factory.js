@@ -283,6 +283,10 @@ export async function startServer({ config, controller, rootDir = appRootDir } =
     console.error(error);
     shutdown(1);
   });
+  process.on("unhandledRejection", (reason) => {
+    console.error("Unhandled rejection:", reason);
+    shutdown(1);
+  });
 
   return { app, server, controller: resolvedController, shutdown };
 }

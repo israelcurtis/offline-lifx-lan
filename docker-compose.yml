@@ -9,10 +9,10 @@ services:
       HOST: 0.0.0.0
       PORT: 3001
       APP_STATE_DIR: /state
-      NODE_MAX_OLD_SPACE_SIZE: 96
-      MEMORY_WARNING_RSS_MB: 112
-    mem_reservation: 96m
-    mem_limit: 160m
+      NODE_MAX_OLD_SPACE_SIZE: 80
+      MEMORY_WARNING_RSS_MB: 96
+    mem_reservation: 80m
+    mem_limit: 128m
     pids_limit: 64
     volumes:
       - ./state:/state

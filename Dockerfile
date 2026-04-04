@@ -6,7 +6,7 @@ ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3001
 ENV APP_STATE_DIR=/state
-ENV NODE_MAX_OLD_SPACE_SIZE=96
+ENV NODE_MAX_OLD_SPACE_SIZE=80
 
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund --loglevel=info

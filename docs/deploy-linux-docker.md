@@ -33,8 +33,8 @@ This will:
 - build the image locally for that device's CPU architecture
 - start the controller with host networking
 - persist `state/` on disk next to the compose file
-- reserve `96 MB` and cap the container at `160 MB`
-- cap Node old-space heap growth at `96 MB`
+- reserve `80 MB` and cap the container at `128 MB`
+- cap Node old-space heap growth at `80 MB`
 
 After startup, open:
 
@@ -56,8 +56,8 @@ This script:
 - recreates the `offline-lifx-lan` container
 - keeps runtime state in `./state`
 - starts the container with host networking and restart policy enabled
-- reserves `96 MB`, caps the container at `160 MB`, and limits it to `64` processes by default
-- passes `NODE_MAX_OLD_SPACE_SIZE=96` and `MEMORY_WARNING_RSS_MB=112` into the container by default
+- reserves `80 MB`, caps the container at `128 MB`, and limits it to `64` processes by default
+- passes `NODE_MAX_OLD_SPACE_SIZE=80` and `MEMORY_WARNING_RSS_MB=96` into the container by default
 
 ## Persistent state
 

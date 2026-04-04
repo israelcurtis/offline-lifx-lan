@@ -85,6 +85,7 @@ Supported environment variables:
 | `HOST` | `0.0.0.0` | Bind address for the local UI |
 | `APP_STATE_DIR` | `state` | Writable app state directory |
 | `MEMORY_WARNING_RSS_MB` | `160` | RSS threshold for the server-memory warning |
+| `NODE_MAX_OLD_SPACE_SIZE` | unset outside Docker | Old-space heap cap applied by the Docker entrypoint when running in the container |
 | `DISCOVERY_WAIT_MS` | `4000` | Delay after manual LAN rescan before returning |
 | `LIFX_TARGET_LABELS` | empty | Optional fixed bulb-label filter |
 | `LIFX_TARGET_IDS` | empty | Optional fixed bulb-id filter |
@@ -96,6 +97,8 @@ Supported environment variables:
 If any of the fixed `LIFX_TARGET_*` filters are set, manual enable/disable controls in the UI are treated as unavailable because targeting is then defined by environment configuration.
 
 For Docker or another remote host, keep `HOST=0.0.0.0` so the service is reachable outside the container. You can still browse it locally at `http://localhost:3001` when the container port is published to your Mac.
+
+When Docker memory limits are configured, the `Server Memory` UI reports `server / available / limit` against the container budget instead of raw host totals.
 
 ## Persistent state
 

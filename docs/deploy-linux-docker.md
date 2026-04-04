@@ -33,6 +33,8 @@ This will:
 - build the image locally for that device's CPU architecture
 - start the controller with host networking
 - persist `state/` on disk next to the compose file
+- reserve `96 MB` and cap the container at `160 MB`
+- cap Node old-space heap growth at `96 MB`
 
 After startup, open:
 
@@ -54,6 +56,8 @@ This script:
 - recreates the `offline-lifx-lan` container
 - keeps runtime state in `./state`
 - starts the container with host networking and restart policy enabled
+- reserves `96 MB`, caps the container at `160 MB`, and limits it to `64` processes by default
+- passes `NODE_MAX_OLD_SPACE_SIZE=96` and `MEMORY_WARNING_RSS_MB=112` into the container by default
 
 ## Persistent state
 
@@ -110,5 +114,8 @@ When you want to inspect or modify the live runtime state on that Linux device:
 
 - `HOST` should stay `0.0.0.0` in the container.
 - `network_mode: host` is intended for Linux. Do not treat that as the Mac workflow.
-- If the target device is extremely constrained, the next optimization would be a smaller runtime image or a multi-stage build, but the current single-stage setup is the lowest-friction starting point.
-- The helper script accepts optional overrides such as `IMAGE_NAME`, `CONTAINER_NAME`, `STATE_DIR`, and `PORT_BIND`.
+- The container now starts the launcher directly with `node src/launcher.js` instead of running through `npm start`, which avoids keeping an extra `npm` process around.
+- `NODE_MAX_OLD_SPACE_SIZE` can be raised or lowered in Compose if the device needs a different heap ceiling.
+- `MEMORY_WARNING_RSS_MB` should stay below the Docker `mem_limit` so the UI warns before the kernel is under pressure.
+- When a Docker memory limit is active, the `Server Memory` panel shows `server / available / limit` for the container instead of raw host free/total values.
+- The helper script accepts optional overrides such as `IMAGE_NAME`, `CONTAINER_NAME`, `STATE_DIR`, `PORT_BIND`, `MEMORY_RESERVATION`, `MEMORY_LIMIT`, `PIDS_LIMIT`, `NODE_MAX_OLD_SPACE_SIZE`, and `MEMORY_WARNING_RSS_MB`.

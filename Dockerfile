@@ -6,6 +6,7 @@ ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3001
 ENV APP_STATE_DIR=/state
+ENV NODE_MAX_OLD_SPACE_SIZE=96
 
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund --loglevel=info
@@ -26,4 +27,4 @@ HEALTHCHECK --interval=60s --timeout=5s --start-period=15s --retries=3 \
   CMD ["node", "-e", "const req = require('node:http').get('http://127.0.0.1:3001/api/status', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on('error', () => process.exit(1)); req.setTimeout(4000, () => { req.destroy(); process.exit(1); });"]
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD ["npm", "start"]
+CMD ["node", "src/launcher.js"]

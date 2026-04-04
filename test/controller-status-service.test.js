@@ -57,4 +57,8 @@ test("buildStatusPayload reports discoveredCount from persisted known devices", 
 
   assert.equal(payload.discoveredCount, 3);
   assert.equal(payload.onlineCount, 1);
+  assert.ok(payload.serverMemory);
+  assert.equal(typeof payload.serverMemory.availableMb, "number");
+  assert.equal(typeof payload.serverMemory.limitMb, "number");
+  assert.ok(["system", "container"].includes(payload.serverMemory.memoryScope));
 });

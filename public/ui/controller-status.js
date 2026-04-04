@@ -30,10 +30,12 @@ export function renderControllerStatus({
 	onlineCount.textContent = String(payload.onlineCount);
 	discoveredCount.textContent = String(payload.discoveredCount);
 	serverMemory.textContent = payload.serverMemory
-		? `${payload.serverMemory.rssMb} / ${payload.serverMemory.freeSystemMb} / ${payload.serverMemory.totalSystemMb} MB`
+		? `${payload.serverMemory.rssMb} / ${payload.serverMemory.availableMb} / ${payload.serverMemory.limitMb} MB`
 		: "--";
 	serverMemory.title = payload.serverMemory
-		? `Node process resident RAM: ${payload.serverMemory.rssMb} MB. System free RAM: ${payload.serverMemory.freeSystemMb} MB. Total system RAM: ${payload.serverMemory.totalSystemMb} MB. Heap used: ${payload.serverMemory.heapUsedMb} MB. Warning threshold: ${payload.serverMemory.warningThresholdMb} MB.`
+		? payload.serverMemory.memoryScope === "container"
+			? `Node process resident RAM: ${payload.serverMemory.rssMb} MB. Container available RAM: ${payload.serverMemory.availableMb} MB. Container memory limit: ${payload.serverMemory.limitMb} MB. Container current usage: ${payload.serverMemory.usageMb} MB. Heap used: ${payload.serverMemory.heapUsedMb} MB. Warning threshold: ${payload.serverMemory.warningThresholdMb} MB.`
+			: `Node process resident RAM: ${payload.serverMemory.rssMb} MB. System free RAM: ${payload.serverMemory.availableMb} MB. Total system RAM: ${payload.serverMemory.limitMb} MB. Heap used: ${payload.serverMemory.heapUsedMb} MB. Warning threshold: ${payload.serverMemory.warningThresholdMb} MB.`
 		: "";
 	serverMemory.dataset.pressure = payload.serverMemory ? payload.serverMemory.pressure : "normal";
 	warningText.hidden = !payload.warning;

@@ -35,3 +35,5 @@ docker run -d \
   -e MEMORY_WARNING_RSS_MB="$MEMORY_WARNING_RSS_MB" \
   -v "$STATE_DIR:/state" \
   "$IMAGE_NAME"
+
+docker image prune -f >/dev/null 2>&1 || true

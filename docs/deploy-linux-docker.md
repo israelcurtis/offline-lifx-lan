@@ -37,7 +37,7 @@ This will:
 After startup, open:
 
 ```text
-http://<linux-device-ip>:3000
+http://<linux-device-ip>:3001
 ```
 
 ## Deploy with Plain Docker
@@ -80,7 +80,7 @@ If you do not want to use Compose or the helper script:
 docker build --network host -t offline-lifx-lan .
 docker run --rm --network host \
   -e HOST=0.0.0.0 \
-  -e PORT=3000 \
+  -e PORT=3001 \
   -e APP_STATE_DIR=/state \
   -v "$(pwd)/state:/state" \
   offline-lifx-lan

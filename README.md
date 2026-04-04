@@ -29,11 +29,11 @@ npm install
 npm start
 ```
 
-3. Open [http://localhost:3000](http://localhost:3000).
+3. Open [http://localhost:3001](http://localhost:3001).
 
 `npm start` runs the launcher wrapper, which is required for the in-app `Restart Server` button and the single-instance guard.
 
-The server binds to `0.0.0.0` by default, so it remains reachable from your LAN and is compatible with containerized deployment. When running locally on your Mac, `http://localhost:3000` still works normally.
+The server binds to `0.0.0.0` by default, so it remains reachable from your LAN and is compatible with containerized deployment. When running locally on your Mac, `http://localhost:3001` still works normally.
 
 ## Docker
 
@@ -57,7 +57,7 @@ npm test
 If you want to wrap the controller as a macOS app with Platypus, there are two entry scripts in the repo root:
 
 - `platypus-textwindow-entry.js`
-  - Use this for Platypus `Text Window` mode. It starts the controller stack and routes stdout to the text window. Open `http://127.0.0.1:3000` in an external browser.
+  - Use this for Platypus `Text Window` mode. It starts the controller stack and routes stdout to the text window. Open `http://127.0.0.1:3001` in an external browser.
 - `platypus-webview-entry.js`
   - Use this for Platypus `Web View` mode. It starts the local controller and then hands off to the browser UI inside the Platypus window.
 
@@ -72,7 +72,7 @@ Recommended bundled files:
 Notes:
 
 - The app uses ES modules, so `package.json` must be present in the bundle because it provides `"type": "module"`.
-- The Platypus Web View wrapper expects the local controller UI to be served from `http://127.0.0.1:3000`.
+- The Platypus Web View wrapper expects the local controller UI to be served from `http://127.0.0.1:3001`.
 - If your Platypus app uses symlinks back to this repo during development, linked file changes can affect the running app directly.
 
 ## Configuration
@@ -81,7 +81,7 @@ Supported environment variables:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `PORT` | `3000` | HTTP port for the local UI |
+| `PORT` | `3001` | HTTP port for the local UI |
 | `HOST` | `0.0.0.0` | Bind address for the local UI |
 | `APP_STATE_DIR` | `state` | Writable app state directory |
 | `MEMORY_WARNING_RSS_MB` | `160` | RSS threshold for the server-memory warning |
@@ -95,7 +95,7 @@ Supported environment variables:
 
 If any of the fixed `LIFX_TARGET_*` filters are set, manual enable/disable controls in the UI are treated as unavailable because targeting is then defined by environment configuration.
 
-For Docker or another remote host, keep `HOST=0.0.0.0` so the service is reachable outside the container. You can still browse it locally at `http://localhost:3000` when the container port is published to your Mac.
+For Docker or another remote host, keep `HOST=0.0.0.0` so the service is reachable outside the container. You can still browse it locally at `http://localhost:3001` when the container port is published to your Mac.
 
 ## Persistent state
 

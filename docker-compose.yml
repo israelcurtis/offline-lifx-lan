@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
     environment:
       HOST: 0.0.0.0
-      PORT: 3000
+      PORT: 3001
       APP_STATE_DIR: /state
     volumes:
       - ./state:/state

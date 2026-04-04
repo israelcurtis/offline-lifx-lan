@@ -10,7 +10,7 @@ npm run dev      # dev server with --watch (no launcher)
 npm test         # node --test
 ```
 
-Default port: 3000.
+Default port: 3001.
 
 ## Architecture
 

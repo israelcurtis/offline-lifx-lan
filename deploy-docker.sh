@@ -10,7 +10,7 @@ STATE_DIR=${STATE_DIR:-$APP_ROOT/state}
 
 mkdir -p "$STATE_DIR"
 
-docker build -t "$IMAGE_NAME" .
+docker build --network host -t "$IMAGE_NAME" .
 
 if docker container inspect "$CONTAINER_NAME" >/dev/null 2>&1; then
   docker rm -f "$CONTAINER_NAME"

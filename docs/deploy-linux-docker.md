@@ -77,7 +77,7 @@ That means:
 If you do not want to use Compose or the helper script:
 
 ```sh
-docker build -t offline-lifx-lan .
+docker build --network host -t offline-lifx-lan .
 docker run --rm --network host \
   -e HOST=0.0.0.0 \
   -e PORT=3000 \

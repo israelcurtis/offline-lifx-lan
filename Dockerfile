@@ -1,4 +1,4 @@
-FROM node:22-slim
+FROM node:20-slim
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ ENV PORT=3000
 ENV APP_STATE_DIR=/state
 
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --no-audit --no-fund --loglevel=info
 
 COPY src ./src
 COPY public ./public

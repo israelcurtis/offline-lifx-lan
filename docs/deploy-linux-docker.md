@@ -115,6 +115,7 @@ When you want to inspect or modify the live runtime state on that Linux device:
 - `HOST` should stay `0.0.0.0` in the container.
 - `network_mode: host` is intended for Linux. Do not treat that as the Mac workflow.
 - The container now starts the launcher directly with `node src/launcher.js` instead of running through `npm start`, which avoids keeping an extra `npm` process around.
+- The Docker healthcheck pings `http://127.0.0.1:3001/api/status` every `5` minutes to keep a basic liveness signal without generating minute-by-minute event noise.
 - `NODE_MAX_OLD_SPACE_SIZE` can be raised or lowered in Compose if the device needs a different heap ceiling.
 - `MEMORY_WARNING_RSS_MB` should stay below the Docker `mem_limit` so the UI warns before the kernel is under pressure.
 - When a Docker memory limit is active, the `Server Memory` panel shows `server / available / limit` for the container instead of raw host free/total values.

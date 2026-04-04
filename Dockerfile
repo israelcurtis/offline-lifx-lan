@@ -23,7 +23,7 @@ RUN mkdir -p ./state
 
 EXPOSE 3001
 
-HEALTHCHECK --interval=60s --timeout=5s --start-period=15s --retries=3 \
+HEALTHCHECK --interval=5m --timeout=5s --start-period=15s --retries=3 \
   CMD ["node", "-e", "const req = require('node:http').get('http://127.0.0.1:3001/api/status', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on('error', () => process.exit(1)); req.setTimeout(4000, () => { req.destroy(); process.exit(1); });"]
 
 ENTRYPOINT ["./docker-entrypoint.sh"]

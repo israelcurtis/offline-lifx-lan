@@ -58,6 +58,25 @@ This script:
 - starts the container with host networking and restart policy enabled
 - reserves `80 MB`, caps the container at `128 MB`, and limits it to `64` processes by default
 - passes `NODE_MAX_OLD_SPACE_SIZE=80` and `MEMORY_WARNING_RSS_MB=96` into the container by default
+- if the rebuild fails but an existing local container or image is already present, falls back to reusing it so the app can still start offline after a reboot
+
+## Offline reboot behavior
+
+If the container was already created successfully before the reboot, Docker should bring it back automatically because the container is started with `--restart unless-stopped`.
+
+If it does not come back on its own, start the existing container without rebuilding:
+
+```sh
+docker start offline-lifx-lan
+```
+
+If you deployed with Compose instead of the helper script, use:
+
+```sh
+docker compose start
+```
+
+If you accidentally run `./deploy-docker.sh` while offline, it now falls back to the existing local container or image instead of failing immediately on the `FROM node:20-slim` build step.
 
 ## Persistent state
 

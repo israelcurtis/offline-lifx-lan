@@ -56,6 +56,51 @@ test("acquireSingleInstanceLock replaces a stale lock file", () => {
   assert.equal(fs.existsSync(lockPath), false);
 });
 
+test("acquireSingleInstanceLock replaces a stale lock file with the current pid", () => {
+  const lockPath = makeTempLockPath();
+  fs.writeFileSync(
+    lockPath,
+    JSON.stringify({
+      pid: process.pid,
+      cwd: "/tmp/stale",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      bootId: "stale-boot-id",
+      startTicks: 1
+    })
+  );
+
+  const releaseLock = acquireSingleInstanceLock(lockPath, { pid: process.pid });
+  const currentLock = JSON.parse(fs.readFileSync(lockPath, "utf8"));
+
+  assert.equal(currentLock.pid, process.pid);
+  assert.notEqual(currentLock.bootId, "stale-boot-id");
+
+  releaseLock();
+  assert.equal(fs.existsSync(lockPath), false);
+});
+
+test("acquireSingleInstanceLock replaces a pid-only lock file", () => {
+  const lockPath = makeTempLockPath();
+  fs.writeFileSync(
+    lockPath,
+    JSON.stringify({
+      pid: process.pid,
+      cwd: "/tmp/stale",
+      createdAt: "2026-01-01T00:00:00.000Z"
+    })
+  );
+
+  const releaseLock = acquireSingleInstanceLock(lockPath, { pid: process.pid });
+  const currentLock = JSON.parse(fs.readFileSync(lockPath, "utf8"));
+
+  assert.equal(currentLock.pid, process.pid);
+  assert.ok(Object.hasOwn(currentLock, "bootId"));
+  assert.ok(Object.hasOwn(currentLock, "startTicks"));
+
+  releaseLock();
+  assert.equal(fs.existsSync(lockPath), false);
+});
+
 test("getDefaultLockPath is stable for the same cwd", () => {
   const cwd = "/Users/israel/Github/offline-lifx-lan";
 

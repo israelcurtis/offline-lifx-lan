@@ -33,17 +33,64 @@ function isPidRunning(pid) {
   }
 }
 
+function readLinuxBootId() {
+  try {
+    return fs.readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+function readLinuxProcessStartTicks(pid) {
+  try {
+    const stat = fs.readFileSync(`/proc/${pid}/stat`, "utf8");
+    const commEndIndex = stat.lastIndexOf(")");
+
+    if (commEndIndex < 0) {
+      return null;
+    }
+
+    const fields = stat.slice(commEndIndex + 2).trim().split(/\s+/);
+    const startTicks = Number(fields[19]);
+    return Number.isFinite(startTicks) && startTicks > 0 ? startTicks : null;
+  } catch {
+    return null;
+  }
+}
+
+function getProcessIdentity(pid) {
+  return {
+    pid,
+    cwd: process.cwd(),
+    createdAt: new Date().toISOString(),
+    bootId: readLinuxBootId(),
+    startTicks: readLinuxProcessStartTicks(pid)
+  };
+}
+
+function isSameProcess(lockInfo, pid) {
+  const lockPid = Number(lockInfo?.pid);
+  if (!Number.isInteger(lockPid) || lockPid !== pid) {
+    return false;
+  }
+
+  const currentBootId = readLinuxBootId();
+  const currentStartTicks = readLinuxProcessStartTicks(pid);
+
+  if (!lockInfo?.bootId || !currentBootId) {
+    return false;
+  }
+
+  if (!Number.isFinite(Number(lockInfo?.startTicks)) || currentStartTicks === null) {
+    return false;
+  }
+
+  return lockInfo.bootId === currentBootId && Number(lockInfo.startTicks) === currentStartTicks;
+}
+
 function writeLockFile(lockPath, pid) {
   const lockHandle = fs.openSync(lockPath, "wx", 0o600);
-  const payload = JSON.stringify(
-    {
-      pid,
-      cwd: process.cwd(),
-      createdAt: new Date().toISOString()
-    },
-    null,
-    2
-  );
+  const payload = JSON.stringify(getProcessIdentity(pid), null, 2);
 
   fs.writeFileSync(lockHandle, `${payload}\n`, "utf8");
   return lockHandle;
@@ -66,8 +113,9 @@ export function acquireSingleInstanceLock(lockPath, { pid = process.pid } = {}) 
 
     const existingLock = readLockInfo(lockPath);
     const existingPid = Number(existingLock?.pid);
+    const samePidAsCurrentProcess = existingPid === pid;
 
-    if (isPidRunning(existingPid)) {
+    if (isPidRunning(existingPid) && !samePidAsCurrentProcess && !isSameProcess(existingLock, pid)) {
       const lockError = new Error(
         `Another offline-lifx-lan instance is already running (PID ${existingPid}).`
       );
